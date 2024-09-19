@@ -217,7 +217,7 @@ The following is an example of a rate throttle, that will randomly throttle 1 in
 
 [cite]: https://developer.twitter.com/en/docs/basics/rate-limiting
 [permissions]: permissions.md
-[identifying-clients]: http://oxpedia.org/wiki/index.php?title=AppSuite:Grizzly#Multiple_Proxies_in_front_of_the_cluster
+[identifying-clients]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For#selecting_an_ip_address
 [cache-setting]: https://docs.djangoproject.com/en/stable/ref/settings/#caches
 [cache-docs]: https://docs.djangoproject.com/en/stable/topics/cache/#setting-up-the-cache
 [gh5181]: https://github.com/encode/django-rest-framework/issues/5181

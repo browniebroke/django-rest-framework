@@ -280,23 +280,26 @@ class URLizerTests(TestCase):
     """
     Test if JSON URLs are transformed into links well
     """
-    def _urlize_dict_check(self, data):
-        """
-        For all items in dict test assert that the value is urlized key
-        """
-        for original, urlized in data.items():
-            assert urlize(original, nofollow=False) == urlized
 
     def test_json_with_url(self):
         """
         Test if JSON URLs are transformed into links well
         """
-        data = {}
-        data['"url": "http://api/users/1/", '] = \
-            '"url": "<a href="http://api/users/1/">http://api/users/1/</a>", '
-        data['"foo_set": [\n    "http://api/foos/1/"\n], '] = \
-            '"foo_set": [\n    "<a href="http://api/foos/1/">http://api/foos/1/</a>"\n], '
-        self._urlize_dict_check(data)
+        test_data = [
+            (
+                'simple',
+                '"url": "http://api/users/1/", ',
+                '"url": "<a href="http://api/users/1/">http://api/users/1/</a>", ',
+            ),
+            (
+                'list',
+                '"foo_set": [\n    "http://api/foos/1/"\n], ',
+                '"foo_set": [\n    "<a href="http://api/foos/1/">http://api/foos/1/</a>"\n], ',
+            ),
+        ]
+        for name, original, urlized in test_data:
+            with self.subTest(name=name):
+                assert urlize(original, nofollow=False) == urlized
 
     def test_template_render_with_autoescape(self):
         """

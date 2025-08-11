@@ -6,7 +6,7 @@
   <meta charset="utf-8">
   <title>Throttling - Django REST framework</title>
   <link href="../../img/favicon.ico" rel="icon" type="image/x-icon">
-  <link rel="canonical" href="http://www.django-rest-framework.org/api-guide/throttling/" />
+  <link rel="canonical" href="https://www.django-rest-framework.org/api-guide/throttling/" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Django, API, REST, Throttling">
   <meta name="author" content="Tom Christie">
@@ -17,10 +17,6 @@
   <link href="../../css/bootstrap-responsive.css" rel="stylesheet">
   <link href="../../css/default.css" rel="stylesheet">
 
-  <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
-  <!--[if lt IE 9]>
-    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
-  <![endif]-->
 
   <script type="text/javascript">
     var _gaq = _gaq || [];
@@ -57,11 +53,11 @@
         <div class="navbar navbar-inverse navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container-fluid">
-          <a class="repo-link btn btn-primary btn-small" href="https://github.com/tomchristie/django-rest-framework/tree/master">GitHub</a>
-          <a class="repo-link btn btn-inverse btn-small " rel="prev" href="../filtering/">
+          <a class="repo-link btn btn-primary btn-small" href="https://github.com/encode/django-rest-framework/tree/master">GitHub</a>
+          <a class="repo-link btn btn-inverse btn-small " rel="next" href="../filtering/">
             Next <i class="icon-arrow-right icon-white"></i>
           </a>
-          <a class="repo-link btn btn-inverse btn-small " rel="next" href="../permissions/">
+          <a class="repo-link btn btn-inverse btn-small " rel="prev" href="../caching/">
             <i class="icon-arrow-left icon-white"></i> Previous
           </a>
           <a id="search_modal_show" class="repo-link btn btn-inverse btn-small" href="#mkdocs_search_modal" data-toggle="modal" data-target="#mkdocs_search_modal"><i class="icon-search icon-white"></i> Search</a>
@@ -70,7 +66,7 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </a>
-          <a class="brand" href="http://www.django-rest-framework.org">Django REST framework</a>
+          <a class="brand" href="https://www.django-rest-framework.org/">Django REST framework</a>
           <div class="nav-collapse collapse">
             
             <!-- Main navigation -->
@@ -110,10 +106,6 @@
                   
                   <li >
                     <a href="../../tutorial/6-viewsets-and-routers/">6 - Viewsets and routers</a>
-                  </li>
-                  
-                  <li >
-                    <a href="../../tutorial/7-schemas-and-client-libraries/">7 - Schemas and client libraries</a>
                   </li>
                   
                 </ul>
@@ -177,6 +169,10 @@
                   
                   <li >
                     <a href="../permissions/">Permissions</a>
+                  </li>
+                  
+                  <li >
+                    <a href="../caching/">Caching</a>
                   </li>
                   
                   <li class="active" >
@@ -243,10 +239,6 @@
                   </li>
                   
                   <li >
-                    <a href="../../topics/api-clients/">API Clients</a>
-                  </li>
-                  
-                  <li >
                     <a href="../../topics/internationalization/">Internationalization</a>
                   </li>
                   
@@ -270,56 +262,115 @@
                     <a href="../../topics/rest-hypermedia-hateoas/">REST, Hypermedia & HATEOAS</a>
                   </li>
                   
+                </ul>
+              </li>
+                
+              <li class="dropdown">
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown">Community <b class="caret"></b></a>
+                <ul class="dropdown-menu">
+                  
                   <li >
-                    <a href="../../topics/third-party-resources/">Third Party Resources</a>
+                    <a href="../../community/tutorials-and-resources/">Tutorials and Resources</a>
                   </li>
                   
                   <li >
-                    <a href="../../topics/contributing/">Contributing to REST framework</a>
+                    <a href="../../community/third-party-packages/">Third Party Packages</a>
                   </li>
                   
                   <li >
-                    <a href="../../topics/project-management/">Project management</a>
+                    <a href="../../community/contributing/">Contributing to REST framework</a>
                   </li>
                   
                   <li >
-                    <a href="../../topics/3.0-announcement/">3.0 Announcement</a>
+                    <a href="../../community/project-management/">Project management</a>
                   </li>
                   
                   <li >
-                    <a href="../../topics/3.1-announcement/">3.1 Announcement</a>
+                    <a href="../../community/release-notes/">Release Notes</a>
                   </li>
                   
                   <li >
-                    <a href="../../topics/3.2-announcement/">3.2 Announcement</a>
+                    <a href="../../community/3.16-announcement/">3.16 Announcement</a>
                   </li>
                   
                   <li >
-                    <a href="../../topics/3.3-announcement/">3.3 Announcement</a>
+                    <a href="../../community/3.15-announcement/">3.15 Announcement</a>
                   </li>
                   
                   <li >
-                    <a href="../../topics/3.4-announcement/">3.4 Announcement</a>
+                    <a href="../../community/3.14-announcement/">3.14 Announcement</a>
                   </li>
                   
                   <li >
-                    <a href="../../topics/3.5-announcement/">3.5 Announcement</a>
+                    <a href="../../community/3.13-announcement/">3.13 Announcement</a>
                   </li>
                   
                   <li >
-                    <a href="../../topics/kickstarter-announcement/">Kickstarter Announcement</a>
+                    <a href="../../community/3.12-announcement/">3.12 Announcement</a>
                   </li>
                   
                   <li >
-                    <a href="../../topics/mozilla-grant/">Mozilla Grant</a>
+                    <a href="../../community/3.11-announcement/">3.11 Announcement</a>
                   </li>
                   
                   <li >
-                    <a href="../../topics/funding/">Funding</a>
+                    <a href="../../community/3.10-announcement/">3.10 Announcement</a>
                   </li>
                   
                   <li >
-                    <a href="../../topics/release-notes/">Release Notes</a>
+                    <a href="../../community/3.9-announcement/">3.9 Announcement</a>
+                  </li>
+                  
+                  <li >
+                    <a href="../../community/3.8-announcement/">3.8 Announcement</a>
+                  </li>
+                  
+                  <li >
+                    <a href="../../community/3.7-announcement/">3.7 Announcement</a>
+                  </li>
+                  
+                  <li >
+                    <a href="../../community/3.6-announcement/">3.6 Announcement</a>
+                  </li>
+                  
+                  <li >
+                    <a href="../../community/3.5-announcement/">3.5 Announcement</a>
+                  </li>
+                  
+                  <li >
+                    <a href="../../community/3.4-announcement/">3.4 Announcement</a>
+                  </li>
+                  
+                  <li >
+                    <a href="../../community/3.3-announcement/">3.3 Announcement</a>
+                  </li>
+                  
+                  <li >
+                    <a href="../../community/3.2-announcement/">3.2 Announcement</a>
+                  </li>
+                  
+                  <li >
+                    <a href="../../community/3.1-announcement/">3.1 Announcement</a>
+                  </li>
+                  
+                  <li >
+                    <a href="../../community/3.0-announcement/">3.0 Announcement</a>
+                  </li>
+                  
+                  <li >
+                    <a href="../../community/kickstarter-announcement/">Kickstarter Announcement</a>
+                  </li>
+                  
+                  <li >
+                    <a href="../../community/mozilla-grant/">Mozilla Grant</a>
+                  </li>
+                  
+                  <li >
+                    <a href="../../community/funding/">Funding</a>
+                  </li>
+                  
+                  <li >
+                    <a href="../../community/jobs/">Jobs</a>
                   </li>
                   
                 </ul>
@@ -386,6 +437,10 @@
                       <a href="#setting-up-the-cache">Setting up the cache</a>
                     </li>
                   
+                    <li>
+                      <a href="#a-note-on-concurrency">A note on concurrency</a>
+                    </li>
+                  
                 
                   <li class="main">
                     <a href="#api-reference">API Reference</a>
@@ -429,7 +484,7 @@
             
               
                 
-                  <a class="github" href="https://github.com/tomchristie/django-rest-framework/tree/master/rest_framework/throttling.py">
+                  <a class="github" href="https://github.com/encode/django-rest-framework/tree/master/rest_framework/throttling.py">
                     <span class="label label-info">throttling.py</span>
                   </a>
                 
@@ -438,13 +493,15 @@
               <h1 id="throttling"><a class="toclink" href="#throttling">Throttling</a></h1>
 <blockquote>
 <p>HTTP/1.1 420 Enhance Your Calm</p>
-<p><a href="https://dev.twitter.com/docs/error-codes-responses">Twitter API rate limiting response</a></p>
+<p><a href="https://developer.twitter.com/en/docs/basics/rate-limiting">Twitter API rate limiting response</a></p>
 </blockquote>
 <p>Throttling is similar to <a href="../permissions/">permissions</a>, in that it determines if a request should be authorized.  Throttles indicate a temporary state, and are used to control the rate of requests that clients can make to an API.</p>
 <p>As with permissions, multiple throttles may be used.  Your API might have a restrictive throttle for unauthenticated requests, and a less restrictive throttle for authenticated requests.</p>
 <p>Another scenario where you might want to use multiple throttles would be if you need to impose different constraints on different parts of the API, due to some services being particularly resource-intensive.</p>
 <p>Multiple throttles can also be used if you want to impose both burst throttling rates, and sustained throttling rates.  For example, you might want to limit a user to a maximum of 60 requests per minute, and 1000 requests per day.</p>
 <p>Throttles do not necessarily only refer to rate-limiting requests.  For example a storage service might also need to throttle against bandwidth, and a paid data service might want to throttle against a certain number of a records being accessed.</p>
+<p>**The application-level throttling that REST framework provides should not be considered a security measure or protection against brute forcing or denial-of-service attacks. Deliberately malicious actors will always be able to spoof IP origins. In addition to this, the built-in throttling implementations are implemented using Django's cache framework, and use non-atomic operations to determine the request rate, which may sometimes result in some fuzziness.</p>
+<p>The application-level throttling provided by REST framework is intended for implementing policies such as different business tiers and basic protections against service over-use.**</p>
 <h2 id="how-throttling-is-determined"><a class="toclink" href="#how-throttling-is-determined">How throttling is determined</a></h2>
 <p>As with permissions and authentication, throttling in REST framework is always defined as a list of classes.</p>
 <p>Before running the main body of the view each throttle in the list is checked.
@@ -452,17 +509,17 @@ If any throttle check fails an <code>exceptions.Throttled</code> exception will 
 <h2 id="setting-the-throttling-policy"><a class="toclink" href="#setting-the-throttling-policy">Setting the throttling policy</a></h2>
 <p>The default throttling policy may be set globally, using the <code>DEFAULT_THROTTLE_CLASSES</code> and <code>DEFAULT_THROTTLE_RATES</code> settings.  For example.</p>
 <pre><code>REST_FRAMEWORK = {
-    'DEFAULT_THROTTLE_CLASSES': (
+    'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle'
-    ),
+    ],
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/day',
         'user': '1000/day'
     }
 }
 </code></pre>
-<p>The rate descriptions used in <code>DEFAULT_THROTTLE_RATES</code> may include <code>second</code>, <code>minute</code>, <code>hour</code> or <code>day</code> as the throttle period.</p>
+<p>The rates used in <code>DEFAULT_THROTTLE_RATES</code> can be specified over a period of second, minute, hour or day. The period must be specified after the <code>/</code> separator using <code>s</code>, <code>m</code>, <code>h</code> or <code>d</code>, respectively. For increased clarity, extended units such as <code>second</code>, <code>minute</code>, <code>hour</code>, <code>day</code> or even abbreviations like <code>sec</code>, <code>min</code>, <code>hr</code> are allowed, as only the first character is relevant to identify the rate.</p>
 <p>You can also set the throttling policy on a per-view or per-viewset basis,
 using the <code>APIView</code> class-based views.</p>
 <pre><code>from rest_framework.response import Response
@@ -470,7 +527,7 @@ from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
 class ExampleView(APIView):
-    throttle_classes = (UserRateThrottle,)
+    throttle_classes = [UserRateThrottle]
 
     def get(self, request, format=None):
         content = {
@@ -478,7 +535,7 @@ class ExampleView(APIView):
         }
         return Response(content)
 </code></pre>
-<p>Or, if you're using the <code>@api_view</code> decorator with function based views.</p>
+<p>If you're using the <code>@api_view</code> decorator with function based views you can use the following decorator.</p>
 <pre><code>@api_view(['GET'])
 @throttle_classes([UserRateThrottle])
 def example_view(request, format=None):
@@ -487,18 +544,32 @@ def example_view(request, format=None):
     }
     return Response(content)
 </code></pre>
+<p>It's also possible to set throttle classes for routes that are created using the <code>@action</code> decorator.
+Throttle classes set in this way will override any viewset level class settings.</p>
+<pre><code>@action(detail=True, methods=["post"], throttle_classes=[UserRateThrottle])
+def example_adhoc_method(request, pk=None):
+    content = {
+        'status': 'request was permitted'
+    }
+    return Response(content)
+</code></pre>
 <h2 id="how-clients-are-identified"><a class="toclink" href="#how-clients-are-identified">How clients are identified</a></h2>
-<p>The <code>X-Forwarded-For</code> and <code>Remote-Addr</code> HTTP headers are used to uniquely identify client IP addresses for throttling.  If the <code>X-Forwarded-For</code> header is present then it will be used, otherwise the value of the <code>Remote-Addr</code> header will be used.</p>
-<p>If you need to strictly identify unique client IP addresses, you'll need to first configure the number of application proxies that the API runs behind by setting the <code>NUM_PROXIES</code> setting.  This setting should be an integer of zero or more.  If set to non-zero then the client IP will be identified as being the last IP address in the <code>X-Forwarded-For</code> header, once any application proxy IP addresses have first been excluded.  If set to zero, then the <code>Remote-Addr</code> header will always be used as the identifying IP address.</p>
-<p>It is important to understand that if you configure the <code>NUM_PROXIES</code> setting, then all clients behind a unique <a href="http://en.wikipedia.org/wiki/Network_address_translation">NAT'd</a> gateway will be treated as a single client.</p>
+<p>The <code>X-Forwarded-For</code> HTTP header and <code>REMOTE_ADDR</code> WSGI variable are used to uniquely identify client IP addresses for throttling.  If the <code>X-Forwarded-For</code> header is present then it will be used, otherwise the value of the <code>REMOTE_ADDR</code> variable from the WSGI environment will be used.</p>
+<p>If you need to strictly identify unique client IP addresses, you'll need to first configure the number of application proxies that the API runs behind by setting the <code>NUM_PROXIES</code> setting.  This setting should be an integer of zero or more.  If set to non-zero then the client IP will be identified as being the last IP address in the <code>X-Forwarded-For</code> header, once any application proxy IP addresses have first been excluded.  If set to zero, then the <code>REMOTE_ADDR</code> value will always be used as the identifying IP address.</p>
+<p>It is important to understand that if you configure the <code>NUM_PROXIES</code> setting, then all clients behind a unique <a href="https://en.wikipedia.org/wiki/Network_address_translation">NAT'd</a> gateway will be treated as a single client.</p>
 <p>Further context on how the <code>X-Forwarded-For</code> header works, and identifying a remote client IP can be <a href="http://oxpedia.org/wiki/index.php?title=AppSuite:Grizzly#Multiple_Proxies_in_front_of_the_cluster">found here</a>.</p>
 <h2 id="setting-up-the-cache"><a class="toclink" href="#setting-up-the-cache">Setting up the cache</a></h2>
-<p>The throttle classes provided by REST framework use Django's cache backend.  You should make sure that you've set appropriate <a href="https://docs.djangoproject.com/en/dev/ref/settings/#caches">cache settings</a>.  The default value of <code>LocMemCache</code> backend should be okay for simple setups.  See Django's <a href="https://docs.djangoproject.com/en/dev/topics/cache/#setting-up-the-cache">cache documentation</a> for more details.</p>
+<p>The throttle classes provided by REST framework use Django's cache backend.  You should make sure that you've set appropriate <a href="https://docs.djangoproject.com/en/stable/ref/settings/#caches">cache settings</a>.  The default value of <code>LocMemCache</code> backend should be okay for simple setups.  See Django's <a href="https://docs.djangoproject.com/en/stable/topics/cache/#setting-up-the-cache">cache documentation</a> for more details.</p>
 <p>If you need to use a cache other than <code>'default'</code>, you can do so by creating a custom throttle class and setting the <code>cache</code> attribute.  For example:</p>
-<pre><code>class CustomAnonRateThrottle(AnonRateThrottle):
-    cache = get_cache('alternate')
+<pre><code>from django.core.cache import caches
+
+class CustomAnonRateThrottle(AnonRateThrottle):
+    cache = caches['alternate']
 </code></pre>
 <p>You'll need to remember to also set your custom throttle class in the <code>'DEFAULT_THROTTLE_CLASSES'</code> settings key, or using the <code>throttle_classes</code> view attribute.</p>
+<h2 id="a-note-on-concurrency"><a class="toclink" href="#a-note-on-concurrency">A note on concurrency</a></h2>
+<p>The built-in throttle implementations are open to <a href="https://en.wikipedia.org/wiki/Race_condition#Data_race">race conditions</a>, so under high concurrency they may allow a few extra requests through.</p>
+<p>If your project relies on guaranteeing the number of requests during concurrent requests, you will need to implement your own throttle class. See <a href="https://github.com/encode/django-rest-framework/issues/5181">issue #5181</a> for more details.</p>
 <hr />
 <h1 id="api-reference"><a class="toclink" href="#api-reference">API Reference</a></h1>
 <h2 id="anonratethrottle"><a class="toclink" href="#anonratethrottle">AnonRateThrottle</a></h2>
@@ -526,10 +597,10 @@ class SustainedRateThrottle(UserRateThrottle):
 </code></pre>
 <p>...and the following settings.</p>
 <pre><code>REST_FRAMEWORK = {
-    'DEFAULT_THROTTLE_CLASSES': (
+    'DEFAULT_THROTTLE_CLASSES': [
         'example.throttles.BurstRateThrottle',
         'example.throttles.SustainedRateThrottle'
-    ),
+    ],
     'DEFAULT_THROTTLE_RATES': {
         'burst': '60/min',
         'sustained': '1000/day'
@@ -555,9 +626,9 @@ class UploadView(APIView):
 </code></pre>
 <p>...and the following settings.</p>
 <pre><code>REST_FRAMEWORK = {
-    'DEFAULT_THROTTLE_CLASSES': (
+    'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.ScopedRateThrottle',
-    ),
+    ],
     'DEFAULT_THROTTLE_RATES': {
         'contacts': '1000/day',
         'uploads': '20/day'
@@ -595,13 +666,16 @@ class RandomRateThrottle(throttling.BaseThrottle):
   <!-- Le javascript
   ================================================== -->
   <!-- Placed at the end of the document so the pages load faster -->
+  <script async src="https://fund.django-rest-framework.org/sidebar_include.js"></script>
   <script src="../../js/jquery-1.8.1-min.js"></script>
   <script src="../../js/prettify-1.0.js"></script>
   <script src="../../js/bootstrap-2.1.1-min.js"></script>
-  <script src="https://fund.django-rest-framework.org/sidebar_include.js"></script>
-  <script>var base_url = '../..';</script>
-  <script src="../../mkdocs/js/require.js"></script>
   <script src="../../js/theme.js"></script>
+
+  <script>var base_url = '../..';</script>
+  
+  <script src="../../search/main.js" defer></script>
+  
 
   <script>
     var shiftWindow = function() {

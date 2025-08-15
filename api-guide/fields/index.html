@@ -53,7 +53,7 @@
         <div class="navbar navbar-inverse navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container-fluid">
-          <a class="repo-link btn btn-primary btn-small" href="https://github.com/encode/django-rest-framework/tree/master">GitHub</a>
+          <a class="repo-link btn btn-primary btn-small" href="https://github.com/encode/django-rest-framework">GitHub</a>
           <a class="repo-link btn btn-inverse btn-small " rel="next" href="../relations/">
             Next <i class="icon-arrow-right icon-white"></i>
           </a>
@@ -640,7 +640,7 @@
             
               
                 
-                  <a class="github" href="https://github.com/encode/django-rest-framework/tree/master/rest_framework/fields.py">
+                  <a class="github" href="https://github.com/encode/django-rest-framework/tree/main/rest_framework/fields.py">
                     <span class="label label-info">fields.py</span>
                   </a>
                 
@@ -895,13 +895,15 @@ explicitly declare the <code>BooleanField</code> on the serializer class, or use
 <h2 id="durationfield"><a class="toclink" href="#durationfield">DurationField</a></h2>
 <p>A Duration representation.
 Corresponds to <code>django.db.models.fields.DurationField</code></p>
-<p>The <code>validated_data</code> for these fields will contain a <code>datetime.timedelta</code> instance.
-The representation is a string following this format <code>'[DD] [HH:[MM:]]ss[.uuuuuu]'</code>.</p>
-<p><strong>Signature:</strong> <code>DurationField(max_value=None, min_value=None)</code></p>
+<p>The <code>validated_data</code> for these fields will contain a <code>datetime.timedelta</code> instance.</p>
+<p><strong>Signature:</strong> <code>DurationField(format=api_settings.DURATION_FORMAT, max_value=None, min_value=None)</code></p>
 <ul>
+<li><code>format</code> - A string representing the output format.  If not specified, this defaults to the same value as the <code>DURATION_FORMAT</code> settings key, which will be <code>'django'</code> unless set. Formats are described below. Setting this value to <code>None</code> indicates that Python <code>timedelta</code> objects should be returned by <code>to_representation</code>. In this case the date encoding will be determined by the renderer.</li>
 <li><code>max_value</code> Validate that the duration provided is no greater than this value.</li>
 <li><code>min_value</code> Validate that the duration provided is no less than this value.</li>
 </ul>
+<h4 id="durationfield-formats"><a class="toclink" href="#durationfield-formats"><code>DurationField</code> formats</a></h4>
+<p>Format may either be the special string <code>'iso-8601'</code>, which indicates that <a href="https://www.w3.org/TR/NOTE-datetime">ISO 8601</a> style intervals should be used (eg <code>'P4DT1H15M20S'</code>), or <code>'django'</code> which indicates that Django interval format <code>'[DD] [HH:[MM:]]ss[.uuuuuu]'</code> should be used (eg: <code>'4 1:15:20'</code>).</p>
 <hr />
 <h1 id="choice-selection-fields"><a class="toclink" href="#choice-selection-fields">Choice selection fields</a></h1>
 <h2 id="choicefield"><a class="toclink" href="#choicefield">ChoiceField</a></h2>

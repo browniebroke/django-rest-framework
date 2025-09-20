@@ -2,8 +2,6 @@ name: pre-commit
 
 on:
   push:
-    branches:
-      - main
   pull_request:
 
 jobs:
@@ -11,6 +9,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - run: |
+          sudo apt update
+          sudo apt install -y gettext
+
+      - run: dpkg-query -L gettext
+
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0

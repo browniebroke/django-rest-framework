@@ -9,11 +9,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - run: |
+      - uses: actions/cache/restore@v4
+        id: cache-gettext-restore
+        with:
+          path: /usr/bin/gettext
+          key: ${{ runner.os }}-gettext
+
+      - if: ${{ steps.cache-gettext-restore.outputs.cache-hit != 'true' }}
+        run: |
           sudo apt update
           sudo apt install -y gettext
 
       - run: dpkg-query -L gettext
+
+      - uses: actions/cache/save@v4
+        id: cache-gettext-save
+        with:
+          path: /usr/bin/gettext
+          key: ${{ runner.os }}-gettext
 
       - uses: actions/checkout@v5
         with:

@@ -15,66 +15,43 @@ import sys
 from pathlib import Path
 
 
-def get_link_ranges(line: str) -> list[tuple[int, int]]:
-    """Get character ranges of existing markdown links in a line."""
-    pattern = r'\[[^\]]+\]\([^)]+\)'
-    return [(m.start(), m.end()) for m in re.finditer(pattern, line)]
-
-
-def is_inside_link(pos: int, ranges: list[tuple[int, int]]) -> bool:
-    """Check if position is inside any of the given ranges."""
-    return any(start <= pos < end for start, end in ranges)
+def get_link_ranges(text: str) -> list[tuple[int, int]]:
+    """Get character ranges of existing markdown links."""
+    pattern = r'\[[^]]+\]\([^)]+\)'
+    return [(m.start(), m.end()) for m in re.finditer(pattern, text)]
 
 
 def add_github_profile_links(content: str) -> str:
     """Convert @username mentions to GitHub profile links."""
-    result = []
+    link_ranges = get_link_ranges(content)
 
-    for line in content.split('\n'):
-        link_ranges = get_link_ranges(line)
-        pattern = r'@([\w-]+(?:\[bot\])?)'
-        matches = list(re.finditer(pattern, line))
+    def replace(match):
+        start, end = match.span()
+        username = match.group(1)
 
-        processed = line
-        for match in reversed(matches):
-            start, end = match.span()
-            username = match.group(1)
+        # Skip if inside existing link or is a decorator like @versioning_class()
+        is_inside_link = any(s <= start < e for s, e in link_ranges)
+        is_decorator = end < len(content) and content[end] == '('
 
-            # Skip if inside link or is a decorator
-            if is_inside_link(start, link_ranges) or (end < len(line) and line[end] == '('):
-                continue
+        if is_inside_link or is_decorator:
+            return match.group(0)
 
-            url_username = username.replace('[bot]', '[bot]')
-            replacement = f'[@{username}](https://github.com/{url_username})'
-            processed = processed[:start] + replacement + processed[end:]
+        url_username = username.replace('[bot]', '[bot]')
+        return f'[@{username}](https://github.com/{url_username})'
 
-        result.append(processed)
-
-    return '\n'.join(result)
+    return re.sub(r'@([\w-]+(?:\[bot\])?)', replace, content)
 
 
 def add_pull_request_links(content: str) -> str:
     """Convert pull request URLs to markdown links in format [#NNNN](url)."""
-    result = []
-    pattern = r'https://github\.com/([\w\-]+)/([\w\-]+)/pull/(\d+)'
+    link_ranges = get_link_ranges(content)
 
-    for line in content.split('\n'):
-        link_ranges = get_link_ranges(line)
-        matches = list(re.finditer(pattern, line))
+    def replace(match):
+        if any(s <= match.start() < e for s, e in link_ranges):
+            return match.group(0)
+        return f'[#{match.group(3)}]({match.group(0)})'
 
-        processed = line
-        for match in reversed(matches):
-            start = match.start()
-
-            if is_inside_link(start, link_ranges):
-                continue
-
-            replacement = f'[#{match.group(3)}]({match.group(0)})'
-            processed = processed[:start] + replacement + processed[match.end():]
-
-        result.append(processed)
-
-    return '\n'.join(result)
+    return re.sub(r'https://github\.com/([\w\-]+)/([\w\-]+)/pull/(\d+)', replace, content)
 
 
 def main():

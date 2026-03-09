@@ -1,5 +1,5 @@
-<div class="form-group {% if field.errors %}has-error{% endif %}">
-  <div class="checkbox">
+<div class="mb-3">
+  <div class="form-check">
     <label>
       <input type="checkbox" name="{{ field.name }}" value="true" {% if field.value %}checked{% endif %}>
         {% if field.label %}{{ field.label }}{% endif %}
@@ -8,11 +8,11 @@
 
   {% if field.errors %}
     {% for error in field.errors %}
-      <span class="help-block">{{ error }}</span>
+      <span class="invalid-feedback">{{ error }}</span>
     {% endfor %}
   {% endif %}
 
   {% if field.help_text %}
-    <span class="help-block">{{ field.help_text|safe }}</span>
+    <span class="form-text">{{ field.help_text|safe }}</span>
   {% endif %}
 </div>

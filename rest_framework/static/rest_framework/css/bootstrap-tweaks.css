@@ -18,10 +18,10 @@ a single block in the template.
   font-size: 80%;
 }
 
-.navbar-inverse .brand a {
+.navbar .navbar-brand {
   color: #999999;
 }
-.navbar-inverse .brand:hover a {
+.navbar .navbar-brand:hover {
   color: white;
   text-decoration: none;
 }
@@ -42,7 +42,7 @@ a single block in the template.
   border-radius: 0px;
 }
 
-.navbar .nav li, .navbar .nav li a, .navbar .brand:hover {
+.navbar .nav-link, .navbar .navbar-brand:hover {
   color: white;
 }
 
@@ -50,11 +50,11 @@ a single block in the template.
   background: #2C2C2C;
 }
 
-.navbar .dropdown-menu li a, .navbar .dropdown-menu li {
+.navbar .dropdown-item {
   color: #A30000;
 }
 
-.navbar .dropdown-menu li a:hover {
+.navbar .dropdown-item:hover {
   background: #EEEEEE;
   color: #C20000;
 }
@@ -63,25 +63,15 @@ ul.breadcrumb {
   margin: 70px 0 0 0;
 }
 
-.breadcrumb li.active a {
+.breadcrumb-item.active a {
   color: #777;
 }
 
-.pagination>.disabled>a,
-.pagination>.disabled>a:hover,
-.pagination>.disabled>a:focus {
+.pagination>.page-item.disabled>.page-link,
+.pagination>.page-item.disabled>.page-link:hover,
+.pagination>.page-item.disabled>.page-link:focus {
   cursor: not-allowed;
   pointer-events: none;
-}
-
-.pager>.disabled>a,
-.pager>.disabled>a:hover,
-.pager>.disabled>a:focus {
-  pointer-events: none;
-}
-
-.pager .next {
-  margin-left: 10px;
 }
 
 /*=== dabapps bootstrap styles ====*/
@@ -124,38 +114,39 @@ html, body {
   margin-bottom: 0;
 }
 
-.well {
+.card .card-body {
   -webkit-box-shadow: none;
      -moz-box-shadow: none;
           box-shadow: none;
 }
 
-.well .form-actions {
+.card .card-body .form-actions {
   padding-bottom: 0;
   margin-bottom: 0;
 }
 
-.well form {
+.card .card-body form {
   margin-bottom: 0;
 }
 
 .nav-tabs {
   border: 0;
+  justify-content: flex-end;
 }
 
-.nav-tabs > li {
-  float: right;
+.nav-tabs .nav-item {
+  float: none;
 }
 
-.nav-tabs li a {
+.nav-tabs .nav-link {
   margin-right: 0;
 }
 
-.nav-tabs > .active > a {
+.nav-tabs .nav-link.active {
   background: #F5F5F5;
 }
 
-.nav-tabs > .active > a:hover {
+.nav-tabs .nav-link.active:hover {
   background: #F5F5F5;
 }
 

@@ -1,8 +1,8 @@
 {% load rest_framework %}
 
-<div class="form-group {% if field.errors %}has-error{% endif %}">
+<div class="mb-3">
   {% if field.label %}
-    <label class="sr-only">
+    <label class="visually-hidden">
       {{ field.label }}
     </label>
   {% endif %}

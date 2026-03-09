@@ -96,7 +96,7 @@ def optional_login(request):
     except NoReverseMatch:
         return ''
 
-    snippet = "<li><a href='{href}?next={next}'>Log in</a></li>"
+    snippet = "<li><a class='nav-link' href='{href}?next={next}'>Log in</a></li>"
     snippet = format_html(snippet, href=login_url, next=escape(request.path))
 
     return mark_safe(snippet)
@@ -130,7 +130,7 @@ def optional_logout(request, user, csrf_token):
         return mark_safe(snippet)
 
     snippet = """<li class="dropdown">
-        <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown">
+        <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
             {user}
         </a>
         <ul class="dropdown-menu">

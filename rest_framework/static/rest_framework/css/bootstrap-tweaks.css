@@ -42,8 +42,12 @@ a single block in the template.
   border-radius: 0px;
 }
 
-.navbar .nav-link, .navbar .navbar-brand:hover {
+.navbar .nav-link, .navbar .navbar-brand:hover,
+.navbar .nav a, .navbar .navbar-nav a {
   color: white;
+}
+.navbar .nav a:hover, .navbar .navbar-nav a:hover {
+  color: #ddd;
 }
 
 .nav-list > .active > a, .nav-list > .active > a:hover {
@@ -61,6 +65,9 @@ a single block in the template.
 
 ul.breadcrumb {
   margin: 70px 0 0 0;
+  background-color: var(--bs-tertiary-bg);
+  padding: 8px 15px;
+  border-radius: 4px;
 }
 
 .breadcrumb-item.active a {

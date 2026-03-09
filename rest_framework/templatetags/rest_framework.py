@@ -129,14 +129,16 @@ def optional_logout(request, user, csrf_token):
         snippet = format_html('<li class="navbar-text">{user}</li>', user=escape(user))
         return mark_safe(snippet)
 
-    snippet = """<li class="dropdown">
+    snippet = """<li class="nav-item dropdown">
         <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
             {user}
         </a>
-        <ul class="dropdown-menu">
-            <form id="logoutForm" method="post" action="{href}?next={next}">
-                <input type="hidden" name="csrfmiddlewaretoken" value="{csrf_token}">
-            </form>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+                <form id="logoutForm" method="post" action="{href}?next={next}">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="{csrf_token}">
+                </form>
+            </li>
             <li>
                 <a class="dropdown-item" href="#" onclick='document.getElementById("logoutForm").submit()'>Log out</a>
             </li>

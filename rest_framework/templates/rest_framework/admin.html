@@ -114,7 +114,7 @@
 
             {% if extra_actions %}
               <div class="dropdown" style="float: right; margin-right: 10px">
-                <button class="btn btn-secondary" id="extra-actions-menu" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                <button class="btn btn-outline-secondary dropdown-toggle" id="extra-actions-menu" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
                   {% trans "Extra Actions" %}
                 </button>
                 <ul class="dropdown-menu" aria-labelledby="extra-actions-menu">
@@ -126,7 +126,7 @@
             {% endif %}
 
             {% if filter_form %}
-              <button style="float: right; margin-right: 10px" data-bs-toggle="modal" data-bs-target="#filtersModal" class="btn btn-secondary">
+              <button style="float: right; margin-right: 10px" data-bs-toggle="modal" data-bs-target="#filtersModal" class="btn btn-outline-secondary">
                 <span class="bi bi-wrench" aria-hidden="true"></span>
                 {% trans "Filters" %}
               </button>

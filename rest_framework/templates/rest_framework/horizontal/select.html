@@ -1,8 +1,8 @@
 {% load rest_framework %}
 
-<div class="form-group">
+<div class="mb-3 row">
   {% if field.label %}
-    <label class="col-sm-2 control-label {% if style.hide_label %}sr-only{% endif %}">
+    <label class="col-sm-2 col-form-label {% if style.hide_label %}visually-hidden{% endif %}">
       {{ field.label }}
     </label>
   {% endif %}
@@ -25,12 +25,12 @@
 
     {% if field.errors %}
       {% for error in field.errors %}
-        <span class="help-block">{{ error }}</span>
+        <span class="invalid-feedback">{{ error }}</span>
       {% endfor %}
     {% endif %}
 
     {% if field.help_text %}
-      <span class="help-block">{{ field.help_text|safe }}</span>
+      <span class="form-text">{{ field.help_text|safe }}</span>
     {% endif %}
   </div>
 </div>

@@ -55,11 +55,13 @@ a single block in the template.
   background: #2C2C2C;
 }
 
-.navbar .dropdown-item {
+.navbar .dropdown-item,
+.navbar .dropdown-menu a {
   color: #A30000;
 }
 
-.navbar .dropdown-item:hover {
+.navbar .dropdown-item:hover,
+.navbar .dropdown-menu a:hover {
   background: #EEEEEE;
   color: #C20000;
 }

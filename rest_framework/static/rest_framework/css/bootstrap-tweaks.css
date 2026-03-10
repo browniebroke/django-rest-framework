@@ -18,10 +18,10 @@ a single block in the template.
   font-size: 80%;
 }
 
-.navbar-inverse .brand a {
+.navbar-dark .navbar-brand {
   color: #999999;
 }
-.navbar-inverse .brand:hover a {
+.navbar-inverse .navbar-brand:hover {
   color: white;
   text-decoration: none;
 }
@@ -124,21 +124,6 @@ html, body {
   margin-bottom: 0;
 }
 
-.well {
-  -webkit-box-shadow: none;
-     -moz-box-shadow: none;
-          box-shadow: none;
-}
-
-.well .form-actions {
-  padding-bottom: 0;
-  margin-bottom: 0;
-}
-
-.well form {
-  margin-bottom: 0;
-}
-
 .nav-tabs {
   border: 0;
 }
@@ -211,20 +196,6 @@ body a:hover {
 
 .request-info {
   clear:both;
-}
-
-.horizontal-checkbox label {
-  padding-top: 0;
-}
-
-.horizontal-checkbox label {
-  padding-top: 0 !important;
-}
-
-.horizontal-checkbox input {
-  float: left;
-  width: 20px;
-  margin-top: 3px;
 }
 
 .modal-footer form {

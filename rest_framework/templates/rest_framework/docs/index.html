@@ -9,8 +9,6 @@
 	    <title>{{ document.title }}</title>
 
         <link href="{% static 'rest_framework/css/bootstrap.min.css' %}" rel="stylesheet">
-        <link href="{% static 'rest_framework/css/bootstrap-theme.min.css' %}" rel="stylesheet">
-        <link href="{% static 'rest_framework/css/font-awesome-4.0.3.css' %}" rel="stylesheet">
         <link href="{% static 'rest_framework/docs/css/base.css' %}" rel="stylesheet">
         <link href="{% static 'rest_framework/docs/css/jquery.json-view.min.css' %}" rel="stylesheet">
 
@@ -22,7 +20,7 @@
 
     </head>
 
-    <body data-spy="scroll" data-target="#sidebar-nav" data-offset="50">
+    <body data-spy="scroll" data-bs-target="#sidebar-nav" data-offset="50">
 
         {% include "rest_framework/docs/sidebar.html" %}
 
@@ -39,7 +37,7 @@
         {% include "rest_framework/docs/auth/session.html" %}
 
         <script src="{% static 'rest_framework/js/jquery-3.7.1.min.js' %}"></script>
-        <script src="{% static 'rest_framework/js/bootstrap.min.js' %}"></script>
+        <script src="{% static 'rest_framework/js/bootstrap.bundle.min.js' %}"></script>
         <script src="{% static 'rest_framework/docs/js/jquery.json-view.min.js' %}"></script>
         <script src="{% static 'rest_framework/docs/js/api.js' %}"></script>
         <script>
@@ -51,7 +49,7 @@
                 $('#auth-control').children().removeClass('active');
                 $('#auth-control').find("[data-auth='session']").closest('li').addClass('active');
             {% endif %}
-	    $('pre.highlight').filter('[data-language="{{ langs | first }}"]').removeClass('hide');
+	    $('pre.highlight').filter('[data-language="{{ langs | first }}"]').removeClass('d-none');
         </script>
     </body>
 </html>

@@ -2,15 +2,15 @@
 {% load rest_framework %}
 {% trans "None" as none_choice %}
 
-<div class="form-group {% if field.errors %}has-error{% endif %}">
+<div class="mb-3">
   {% if field.label %}
-    <label class="sr-only">
+    <label class="visually-hidden">
       {{ field.label }}
     </label>
   {% endif %}
 
   {% if field.allow_null or field.allow_blank %}
-    <div class="radio">
+    <div class="form-check">
       <label>
         <input type="radio" name="{{ field.name }}" value="" {% if not field.value %}checked{% endif %}>
         {{ none_choice }}
@@ -19,7 +19,7 @@
   {% endif %}
 
   {% for key, text in field.choices|items %}
-    <div class="radio">
+    <div class="form-check">
       <label>
         <input type="radio" name="{{ field.name }}" value="{{ key }}" {% if key|as_string == field.value|as_string %}checked{% endif %}>
         {{ text }}

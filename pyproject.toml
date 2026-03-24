@@ -107,6 +107,7 @@ known_first_party = [ "rest_framework", "tests" ]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
 skip = "*/kickstarter-announcement.md,*.js,*.map,*.po,*.css,locale"
 ignore-words = "codespell-ignore-words.txt"
+ignore-words-list = "commitish"
 builtin = "clear,rare,code,names,en-GB_to_en-US"
 
 [tool.pyproject-fmt]

@@ -2522,7 +2522,7 @@ class TestDictField(FieldValues):
 
         assert exc_info.value.detail == ['This dictionary may not be empty.']
 
-    def test_querydict_dict_input(self):
+    def test_query_dict_input_with_dot_separated_keys(self):
         """
         DictField should correctly parse HTML form (QueryDict) input
         with dot-separated keys.
@@ -2534,7 +2534,7 @@ class TestDictField(FieldValues):
         assert serializer.is_valid(), serializer.errors
         assert serializer.validated_data == {'data': {'a': '1', 'b': '2'}}
 
-    def test_querydict_dict_input_no_values_uses_default(self):
+    def test_query_dict_input_no_values_uses_default(self):
         """
         When no matching keys are present in the QueryDict and a default
         is set, the field should return the default value.
@@ -2547,7 +2547,7 @@ class TestDictField(FieldValues):
         assert serializer.is_valid(), serializer.errors
         assert serializer.validated_data == {'a': 1, 'data': {'x': 'y'}}
 
-    def test_querydict_dict_input_no_values_no_default_and_not_required(self):
+    def test_query_dict_input_no_values_no_default_and_not_required(self):
         """
         When no matching keys are present in the QueryDict, there is no
         default, and the field is not required, the field should be
@@ -2560,7 +2560,7 @@ class TestDictField(FieldValues):
         assert serializer.is_valid(), serializer.errors
         assert serializer.validated_data == {}
 
-    def test_querydict_dict_input_no_values_required(self):
+    def test_query_dict_input_no_values_required(self):
         """
         When no matching keys are present in the QueryDict and the field
         is required, validation should fail.
@@ -2571,6 +2571,24 @@ class TestDictField(FieldValues):
         serializer = TestSerializer(data=QueryDict(''))
         assert not serializer.is_valid()
         assert 'data' in serializer.errors
+
+    def test_partial_update_can_clear_html_dict_field(self):
+        """
+        Test that a partial update can clear a DictField when provided with an
+        empty string value through a QueryDict.
+        """
+        class TestSerializer(serializers.Serializer):
+            field_name = serializers.DictField(required=False)
+            other_field = serializers.CharField(required=False)
+
+        serializer = TestSerializer(
+            data=QueryDict('field_name='),
+            partial=True,
+        )
+        assert serializer.is_valid()
+        assert 'field_name' in serializer.validated_data
+        assert serializer.validated_data['field_name'] == {}
+        assert 'other_field' not in serializer.validated_data
 
 
 class TestNestedDictField(FieldValues):

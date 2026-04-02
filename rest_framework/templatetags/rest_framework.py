@@ -72,7 +72,7 @@ def optional_login(request):
     except NoReverseMatch:
         return ''
 
-    snippet = "<li><a href='{href}?next={next}'>Log in</a></li>"
+    snippet = "<li><a class='nav-link' href='{href}?next={next}'>Log in</a></li>"
     snippet = format_html(snippet, href=login_url, next=escape(request.path))
 
     return mark_safe(snippet)
@@ -105,17 +105,18 @@ def optional_logout(request, user, csrf_token):
         snippet = format_html('<li class="navbar-text">{user}</li>', user=escape(user))
         return mark_safe(snippet)
 
-    snippet = """<li class="dropdown">
-        <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+    snippet = """<li class="nav-item dropdown">
+        <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
             {user}
-            <b class="caret"></b>
         </a>
-        <ul class="dropdown-menu">
-            <form id="logoutForm" method="post" action="{href}?next={next}">
-                <input type="hidden" name="csrfmiddlewaretoken" value="{csrf_token}">
-            </form>
+        <ul class="dropdown-menu dropdown-menu-end">
             <li>
-                <a href="#" onclick='document.getElementById("logoutForm").submit()'>Log out</a>
+                <form id="logoutForm" method="post" action="{href}?next={next}">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="{csrf_token}">
+                </form>
+            </li>
+            <li>
+                <a class="dropdown-item" href="#" onclick='document.getElementById("logoutForm").submit()'>Log out</a>
             </li>
         </ul>
     </li>"""
@@ -159,7 +160,7 @@ def add_class(value, css_class):
 
     Usage:
 
-        {{ field.label_tag|add_class:"control-label" }}
+        {{ field.label_tag|add_class:"col-form-label" }}
 
     In the case of REST Framework, the filter is used to add Bootstrap-specific
     classes to the forms.

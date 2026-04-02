@@ -1,14 +1,14 @@
 {% load rest_framework %}
 
-<div class="form-group {% if field.errors %}has-error{% endif %}">
+<div class="mb-3">
   {% if field.label %}
-    <label {% if style.hide_label %}class="sr-only"{% endif %}>{{ field.label }}</label>
+    <label {% if style.hide_label %}class="visually-hidden"{% endif %}>{{ field.label }}</label>
   {% endif %}
 
   {% if style.inline %}
     <div>
       {% for key, text in field.choices|items %}
-        <label class="checkbox-inline">
+        <label class="form-check-inline">
           <input type="checkbox" name="{{ field.name }}" value="{{ key }}" {% if key|as_string in field.value|as_list_of_strings %}checked{% endif %}>
             {{ text }}
         </label>
@@ -16,7 +16,7 @@
     </div>
   {% else %}
     {% for key, text in field.choices|items %}
-      <div class="checkbox">
+      <div class="form-check">
         <label>
           <input type="checkbox" name="{{ field.name }}" value="{{ key }}" {% if key|as_string in field.value|as_list_of_strings %}checked{% endif %}>
           {{ text }}
@@ -27,11 +27,11 @@
 
   {% if field.errors %}
     {% for error in field.errors %}
-      <span class="help-block">{{ error }}</span>
+      <span class="invalid-feedback">{{ error }}</span>
     {% endfor %}
   {% endif %}
 
   {% if field.help_text %}
-    <span class="help-block">{{ field.help_text|safe }}</span>
+    <span class="form-text">{{ field.help_text|safe }}</span>
   {% endif %}
 </div>

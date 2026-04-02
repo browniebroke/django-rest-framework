@@ -12,12 +12,12 @@ function replaceDocument(docString) {
 }
 
 function doAjaxSubmit(e) {
-  var form = $(this);
-  var btn = $(this.clk);
+  var form = e.currentTarget;
+  var btn = form.clk;
   var method = (
-    btn.data('method') ||
-    form.data('method') ||
-    form.attr('method') || 'GET'
+    (btn && btn.dataset.method) ||
+    form.dataset.method ||
+    form.getAttribute('method') || 'GET'
   ).toUpperCase();
 
   if (method === 'GET') {
@@ -25,9 +25,17 @@ function doAjaxSubmit(e) {
     return;
   }
 
-  var contentType =
-    form.find('input[data-override="content-type"]').val() ||
-    form.find('select[data-override="content-type"] option:selected').text();
+  var contentTypeOverride =
+    form.querySelector('input[data-override="content-type"]');
+  var contentTypeSelect =
+    form.querySelector('select[data-override="content-type"]');
+  var contentType = '';
+
+  if (contentTypeOverride) {
+    contentType = contentTypeOverride.value;
+  } else if (contentTypeSelect) {
+    contentType = contentTypeSelect.options[contentTypeSelect.selectedIndex].text;
+  }
 
   if (method === 'POST' && !contentType) {
     // POST requests can use standard form submits, unless we have
@@ -38,11 +46,15 @@ function doAjaxSubmit(e) {
   // At this point we need to make an AJAX form submission.
   e.preventDefault();
 
-  var url = form.attr('action');
+  var url = form.getAttribute('action');
   var data;
+  var headers = {
+    'Accept': 'text/html; q=1.0, */*'
+  };
 
   if (contentType) {
-    data = form.find('[data-override="content"]').val() || ''
+    var contentEl = form.querySelector('[data-override="content"]');
+    data = contentEl ? contentEl.value : '';
 
     if (contentType === 'multipart/form-data') {
       // We need to add a boundary parameter to the header
@@ -58,46 +70,38 @@ function doAjaxSubmit(e) {
       // Fix textarea.value EOL normalisation (multipart/form-data should use CR+NL, not NL)
       data = data.replace(/\n/g, '\r\n');
     }
+    headers['Content-Type'] = contentType;
   } else {
-    contentType = form.attr('enctype') || form.attr('encoding')
+    var enctype = form.getAttribute('enctype') || form.getAttribute('encoding');
 
-    if (contentType === 'multipart/form-data') {
-      if (!window.FormData) {
-        alert('Your browser does not support AJAX multipart form submissions');
-        return;
-      }
-
+    if (enctype === 'multipart/form-data') {
       // Use the FormData API and allow the content type to be set automatically,
       // so it includes the boundary string.
       // See https://developer.mozilla.org/en-US/docs/Web/API/FormData/Using_FormData_Objects
-      contentType = false;
-      data = new FormData(form[0]);
+      data = new FormData(form);
     } else {
-      contentType = 'application/x-www-form-urlencoded; charset=UTF-8'
-      data = form.serialize();
+      headers['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
+      data = new URLSearchParams(new FormData(form)).toString();
     }
   }
 
-  var ret = $.ajax({
-    url: url,
-    method: method,
-    data: data,
-    contentType: contentType,
-    processData: false,
-    headers: {
-      'Accept': 'text/html; q=1.0, */*'
-    },
-  });
+  var xhr = new XMLHttpRequest();
+  xhr.open(method, url);
 
-  ret.always(function(data, textStatus, jqXHR) {
-    if (textStatus != 'success') {
-      jqXHR = data;
+  for (var headerName in headers) {
+    if (headers.hasOwnProperty(headerName)) {
+      xhr.setRequestHeader(headerName, headers[headerName]);
     }
+  }
 
-    var responseContentType = jqXHR.getResponseHeader("content-type") || "";
+  // Add CSRF headers
+  addCsrfHeaders(xhr, method, url);
+
+  xhr.onloadend = function() {
+    var responseContentType = xhr.getResponseHeader("content-type") || "";
 
     if (responseContentType.toLowerCase().indexOf('text/html') === 0) {
-      replaceDocument(jqXHR.responseText);
+      replaceDocument(xhr.responseText);
 
       try {
         // Modify the location and scroll to top, as if after page load.
@@ -111,23 +115,20 @@ function doAjaxSubmit(e) {
       // Not HTML content. We can't open this directly, so redirect.
       window.location = url;
     }
-  });
+  };
 
-  return ret;
+  xhr.send(data);
 }
 
 function captureSubmittingElement(e) {
   var target = e.target;
-  var form = this;
-
-  form.clk = target;
+  var form = target.closest('form');
+  if (form) {
+    form.clk = target;
+  }
 }
 
-$.fn.ajaxForm = function() {
-  var options = {}
-
-  return this
-    .unbind('submit.form-plugin  click.form-plugin')
-    .bind('submit.form-plugin', options, doAjaxSubmit)
-    .bind('click.form-plugin', options, captureSubmittingElement);
-};
+function initAjaxForm(form) {
+  form.addEventListener('submit', doAjaxSubmit);
+  form.addEventListener('click', captureSubmittingElement);
+}

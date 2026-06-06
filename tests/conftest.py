@@ -1,12 +1,15 @@
+import contextlib
 import os
 
 import dj_database_url
 import django
 import pytest
 from django.apps import apps
+from django.contrib.postgres.operations import UnaccentExtension
 from django.core import management
 from django.core.management.color import no_style
 from django.db import connection
+from django.db.migrations.state import ProjectState
 
 
 @pytest.fixture
@@ -141,3 +144,29 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if 'requires_postgres' in item.keywords:
                 item.add_marker(skip_postgres)
+
+
+@contextlib.contextmanager
+def _postgres_extension(extension):
+    """Helper to enable a PostgreSQL extension in tests."""
+    with connection.schema_editor(atomic=False) as schema_editor:
+        extension.database_forwards(
+            app_label='tests',
+            schema_editor=schema_editor,
+            from_state=ProjectState(),
+            to_state=ProjectState(),
+        )
+        yield
+        extension.database_backwards(
+            app_label='tests',
+            schema_editor=schema_editor,
+            from_state=ProjectState(),
+            to_state=ProjectState(),
+        )
+
+
+@pytest.fixture
+def postgres_unaccent(db):
+    """Enable the unaccent PostgreSQL extension in tests."""
+    with _postgres_extension(UnaccentExtension()):
+        yield

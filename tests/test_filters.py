@@ -248,6 +248,7 @@ class SearchFilterTests(TestCase):
             ]
 
     @pytest.mark.requires_postgres
+    @pytest.mark.usefixtures('postgres_unaccent')
     def test_search_field_with_unaccent(self):
         SearchFilterModel.objects.create(title='Jeremy', text='jeremy')
         SearchFilterModel.objects.create(title='Jérémy', text='jérémy')

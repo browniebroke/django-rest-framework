@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../theme/img/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -1180,6 +1180,17 @@
     <span class="md-ellipsis">
       
         View schema decorator
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#throttle-scope-decorator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Throttle scope decorator
       
     </span>
   </a>
@@ -3295,6 +3306,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#throttle-scope-decorator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Throttle scope decorator
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3526,6 +3548,16 @@ You may pass <code>None</code> in order to exclude the view from schema generati
 def view(request):
     return Response({&quot;message&quot;: &quot;Will not appear in schema!&quot;})
 </code></pre></div>
+<h3 id="throttle-scope-decorator">Throttle scope decorator<a class="headerlink" href="#throttle-scope-decorator" title="Permanent link">&para;</a></h3>
+<p>To set the throttle scope of function based views you may use the <code>@throttle_scope</code> decorator:</p>
+<div class="language-text highlight"><pre><span></span><code>from rest_framework.decorators import api_view, throttle_scope
+
+@api_view([&#39;GET&#39;])
+@throttle_scope(&quot;hello&quot;)
+def view(request):
+    return Response({&quot;message&quot;: &quot;Hello for today! See you tomorrow!&quot;})
+</code></pre></div>
+<p>See <a href="../throttling/#scopedratethrottle">ScopedRateThrottle documentation</a> for more details.</p>
 
 
 
@@ -3592,7 +3624,7 @@ def view(request):
     
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="../../theme/js/prettify-1.0.js"></script>
       

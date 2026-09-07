@@ -19,6 +19,7 @@ import warnings
 from collections import defaultdict
 from collections.abc import Mapping
 
+from asgiref.sync import sync_to_async
 from django.core.exceptions import FieldDoesNotExist, ImproperlyConfigured
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models
@@ -268,6 +269,33 @@ class BaseSerializer(Field):
             msg = 'You must call `.is_valid()` before accessing `.validated_data`.'
             raise AssertionError(msg)
         return self._validated_data
+
+    # Asynchronous counterparts, for use from async views.
+    #
+    # Serialization and validation may perform blocking operations, such as
+    # database queries for related fields, unique validators, or lazily
+    # evaluated querysets. These methods run their synchronous counterparts
+    # in a thread, so that the whole of the serializer machinery, including
+    # third-party fields and user defined `create()`/`update()` methods,
+    # remains safe to use from an event loop.
+
+    async def ais_valid(self, *, raise_exception=False):
+        """
+        Asynchronous counterpart of `is_valid()`.
+        """
+        return await sync_to_async(self.is_valid)(raise_exception=raise_exception)
+
+    async def asave(self, **kwargs):
+        """
+        Asynchronous counterpart of `save()`.
+        """
+        return await sync_to_async(self.save)(**kwargs)
+
+    async def adata(self):
+        """
+        Asynchronous counterpart of the `data` property.
+        """
+        return await sync_to_async(lambda: self.data)()
 
 
 # Serializer & ListSerializer classes

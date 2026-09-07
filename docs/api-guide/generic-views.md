@@ -399,6 +399,23 @@ Using custom base classes is a good option if you have custom behavior that cons
 
 ---
 
+## Asynchronous generic views
+
+Asynchronous counterparts of the mixins and concrete generic views are provided, prefixed with `Async`: `AsyncCreateModelMixin`, `AsyncListModelMixin`, `AsyncRetrieveModelMixin`, `AsyncUpdateModelMixin`, `AsyncDestroyModelMixin`, and `AsyncCreateAPIView`, `AsyncListAPIView`, `AsyncRetrieveAPIView`, `AsyncDestroyAPIView`, `AsyncUpdateAPIView`, `AsyncListCreateAPIView`, `AsyncRetrieveUpdateAPIView`, `AsyncRetrieveDestroyAPIView` and `AsyncRetrieveUpdateDestroyAPIView`.
+
+The async mixins provide the same actions as the synchronous ones, and their save and deletion hooks are the coroutines `aperform_create()`, `aperform_update()` and `aperform_destroy()`. `GenericAPIView` additionally provides `aget_object()`, `afilter_queryset()` and `apaginate_queryset()`.
+
+    class UserList(generics.AsyncListCreateAPIView):
+        queryset = User.objects.all()
+        serializer_class = UserSerializer
+
+        async def aperform_create(self, serializer):
+            await serializer.asave(owner=self.request.user)
+
+See the [asynchronous support][async] topic for details.
+
+---
+
 ## PUT as create
 
 Prior to version 3.0 the REST framework mixins treated `PUT` as either an update or a create operation, depending on if the object already existed or not.
@@ -428,3 +445,4 @@ The following third party packages provide additional generic view implementatio
 [DestroyModelMixin]: #destroymodelmixin
 [django-rest-multiple-models]: https://github.com/MattBroach/DjangoRestMultipleModels
 [django-docs-select-related]: https://docs.djangoproject.com/en/stable/ref/models/querysets/#django.db.models.query.QuerySet.select_related
+[async]: ../topics/async.md

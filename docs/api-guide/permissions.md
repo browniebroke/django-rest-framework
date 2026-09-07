@@ -292,6 +292,21 @@ The following table lists the access restriction methods and the level of contro
  \* A Serializer class should not raise PermissionDenied in a list action, or the entire list would not be returned. <br>
  \** The `get_*()` methods have access to the current view and can return different Serializer or QuerySet instances based on the request or action.
 
+## Asynchronous permissions
+
+`BasePermission.ahas_permission()` and `BasePermission.ahas_object_permission()` are the asynchronous counterparts of `.has_permission()` and `.has_object_permission()`, used by [asynchronous views][async]. Their default implementations run the synchronous methods in a thread, so existing permission classes work unchanged. Override them to provide native async implementations:
+
+    class IsOwner(permissions.BasePermission):
+        def has_object_permission(self, request, view, obj):
+            return obj.owner == request.user
+
+        async def ahas_object_permission(self, request, view, obj):
+            # No blocking operations, so the sync implementation can be
+            # called directly.
+            return self.has_object_permission(request, view, obj)
+
+Composing permissions using `&`, `|` and `~` is supported for the async counterparts too. Always implement the synchronous methods, as they remain in use by synchronous views and the browsable API.
+
 ---
 
 ## Third party packages
@@ -358,3 +373,4 @@ The [Axioms DRF PY][axioms-drf-py] package is an extension that provides support
 [drf-access-policy]: https://github.com/rsinger86/drf-access-policy
 [drf-psq]: https://github.com/drf-psq/drf-psq
 [axioms-drf-py]: https://github.com/abhishektiwari/axioms-drf-py
+[async]: ../topics/async.md

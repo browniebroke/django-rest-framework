@@ -127,6 +127,19 @@ You won't typically need to override this method.
 
 ---
 
+## Asynchronous views
+
+Handler methods may be declared with `async def`, in which case the whole request lifecycle is run asynchronously. All handler methods on a view must either be sync or async. See the [asynchronous support][async] topic for details.
+
+    class ListUsers(APIView):
+        async def get(self, request, format=None):
+            usernames = [user.username async for user in User.objects.all()]
+            return Response(usernames)
+
+The following async counterparts of the API policy implementation methods are used by async views: `.ainitial()`, `.aperform_authentication()`, `.acheck_permissions()`, `.acheck_object_permissions()` and `.acheck_throttles()`.
+
+---
+
 ## Function Based Views
 
 > Saying [that class-based views] is always the superior solution is a mistake.
@@ -147,6 +160,8 @@ The core of this functionality is the `api_view` decorator, which takes a list o
     @api_view()
     def hello_world(request):
         return Response({"message": "Hello, world!"})
+
+The decorated function may also be a coroutine function, resulting in an [asynchronous view][async].
 
 This view will use the default renderers, parsers, authentication classes etc specified in the [settings].
 
@@ -236,6 +251,7 @@ See [ScopedRateThrottle documentation][scoped-rate-throttle] for more details.
 [cite]: https://reinout.vanrees.org/weblog/2011/08/24/class-based-views-usage.html
 [cite2]: http://www.boredomandlaziness.org/2012/05/djangos-cbvs-are-not-mistake-but.html
 [settings]: settings.md
+[async]: ../topics/async.md
 [throttling]: throttling.md
 [schemas]: schemas.md
 [scoped-rate-throttle]: throttling.md#scopedratethrottle

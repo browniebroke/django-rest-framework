@@ -313,6 +313,19 @@ As with `ModelViewSet`, you'll normally need to provide at least the `queryset` 
 
 Again, as with `ModelViewSet`, you can use any of the standard attributes and method overrides available to `GenericAPIView`.
 
+## AsyncModelViewSet and AsyncReadOnlyModelViewSet
+
+The `AsyncModelViewSet` and `AsyncReadOnlyModelViewSet` classes are asynchronous counterparts of `ModelViewSet` and `ReadOnlyModelViewSet`, composed from the `Async` mixins. They provide the same actions, so routers work unchanged. Extra actions on an async viewset must be declared with `async def`. See the [asynchronous support][async] topic for details.
+
+    class UserViewSet(viewsets.AsyncModelViewSet):
+        queryset = User.objects.all()
+        serializer_class = UserSerializer
+
+        @action(detail=True, methods=['post'])
+        async def set_password(self, request, pk=None):
+            user = await self.aget_object()
+            ...
+
 ## Custom ViewSet base classes
 
 You may need to provide custom `ViewSet` classes that do not have the full set of `ModelViewSet` actions, or that customize the behavior in some other way.
@@ -339,3 +352,4 @@ By creating your own base `ViewSet` classes, you can provide common behavior tha
 
 [cite]: https://guides.rubyonrails.org/action_controller_overview.html
 [routers]: routers.md
+[async]: ../topics/async.md

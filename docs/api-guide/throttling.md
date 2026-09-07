@@ -195,6 +195,10 @@ For example, given the following views...
 
 User requests to either `ContactListView` or `ContactDetailView` would be restricted to a total of 1000 requests per-day.  User requests to `UploadView` would be restricted to 20 requests per day.
 
+## Asynchronous throttling
+
+`BaseThrottle.aallow_request(request, view)` is the asynchronous counterpart of `.allow_request()`, used by [asynchronous views][async]. The default implementation runs `.allow_request()` in a thread, so existing throttle classes work unchanged. `SimpleRateThrottle` and its subclasses use the asynchronous cache interface, and provide an `.athrottle_success()` hook that is used in place of `.throttle_success()` from async views.
+
 ---
 
 ## Custom throttles
@@ -222,3 +226,4 @@ The following is an example of a rate throttle, that will randomly throttle 1 in
 [cache-docs]: https://docs.djangoproject.com/en/stable/topics/cache/#setting-up-the-cache
 [gh5181]: https://github.com/encode/django-rest-framework/issues/5181
 [race]: https://en.wikipedia.org/wiki/Race_condition#Data_race
+[async]: ../topics/async.md

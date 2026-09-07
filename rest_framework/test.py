@@ -9,7 +9,11 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.handlers.wsgi import WSGIHandler
 from django.core.signals import request_finished, request_started
 from django.db import close_old_connections
+from django.http import HttpRequest
 from django.test import override_settings, testcases
+from django.test.client import AsyncClient as DjangoAsyncClient
+from django.test.client import AsyncClientHandler
+from django.test.client import AsyncRequestFactory as DjangoAsyncRequestFactory
 from django.test.client import Client as DjangoClient
 from django.test.client import ClientHandler
 from django.test.client import RequestFactory as DjangoRequestFactory
@@ -138,7 +142,11 @@ else:
         raise ImproperlyConfigured('requests must be installed in order to use RequestsClient.')
 
 
-class APIRequestFactory(DjangoRequestFactory):
+class _APIRequestFactoryMixin:
+    """
+    Shared behavior of the sync and async request factories: rendering the
+    request data using the configured test renderers.
+    """
     renderer_classes_list = api_settings.TEST_REQUEST_RENDERER_CLASSES
     default_format = api_settings.TEST_REQUEST_DEFAULT_FORMAT
 
@@ -231,6 +239,8 @@ class APIRequestFactory(DjangoRequestFactory):
         data, content_type = self._encode_data(data, format, content_type)
         return self.generic('OPTIONS', path, data, content_type, **extra)
 
+
+class APIRequestFactory(_APIRequestFactoryMixin, DjangoRequestFactory):
     def generic(self, method, path, data='',
                 content_type='application/octet-stream', secure=False, **extra):
         # Include the CONTENT_TYPE, regardless of whether or not data is empty.
@@ -243,6 +253,33 @@ class APIRequestFactory(DjangoRequestFactory):
     def request(self, **kwargs):
         request = super().request(**kwargs)
         request._dont_enforce_csrf_checks = not self.enforce_csrf_checks
+        return request
+
+
+class AsyncAPIRequestFactory(_APIRequestFactoryMixin, DjangoAsyncRequestFactory):
+    """
+    Asynchronous counterpart of `APIRequestFactory`, creating ASGI requests.
+
+    Extra keyword arguments are added to the request as headers, and may be
+    given either using their `HTTP_` prefixed WSGI style names (as with the
+    synchronous request factory) or as plain header names.
+    """
+    def generic(self, method, path, data='',
+                content_type='application/octet-stream', secure=False,
+                *, headers=None, query_params=None, **extra):
+        extra = {
+            key.removeprefix('HTTP_'): value for key, value in extra.items()
+        }
+        request = super().generic(
+            method, path, data, content_type, secure,
+            headers=headers, query_params=query_params, **extra
+        )
+        if isinstance(request, HttpRequest):
+            # Include the CONTENT_TYPE, regardless of whether or not data is
+            # empty, matching the behavior of the synchronous factory.
+            if content_type is not None and 'content-type' not in request.headers:
+                request.META['CONTENT_TYPE'] = str(content_type)
+            request._dont_enforce_csrf_checks = not self.enforce_csrf_checks
         return request
 
 
@@ -262,6 +299,24 @@ class ForceAuthClientHandler(ClientHandler):
         # request object.
         force_authenticate(request, self._force_user, self._force_token)
         return super().get_response(request)
+
+
+class AsyncForceAuthClientHandler(AsyncClientHandler):
+    """
+    A patched version of AsyncClientHandler that can enforce authentication
+    on the outgoing requests.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self._force_user = None
+        self._force_token = None
+        super().__init__(*args, **kwargs)
+
+    async def get_response_async(self, request):
+        # This is the simplest place we can hook into to patch the
+        # request object.
+        force_authenticate(request, self._force_user, self._force_token)
+        return await super().get_response_async(request)
 
 
 class APIClient(APIRequestFactory, DjangoClient):
@@ -346,6 +401,101 @@ class APIClient(APIRequestFactory, DjangoClient):
 
         if self.session:
             super().logout()
+
+
+class AsyncAPIClient(AsyncAPIRequestFactory, DjangoAsyncClient):
+    """
+    Asynchronous counterpart of `APIClient`, based on Django's `AsyncClient`.
+
+    All the request methods are coroutines, and must be awaited:
+
+        client = AsyncAPIClient()
+        response = await client.get('/users/')
+    """
+    def __init__(self, enforce_csrf_checks=False, **defaults):
+        super().__init__(**defaults)
+        self.handler = AsyncForceAuthClientHandler(enforce_csrf_checks)
+        self._credentials = {}
+
+    def credentials(self, **kwargs):
+        """
+        Sets headers that will be used on every outgoing request. Header
+        names may be given either using their `HTTP_` prefixed WSGI style
+        names, or as plain header names.
+        """
+        self._credentials = kwargs
+
+    def force_authenticate(self, user=None, token=None):
+        """
+        Forcibly authenticates outgoing requests with the given
+        user and/or token.
+        """
+        self.handler._force_user = user
+        self.handler._force_token = token
+
+    async def request(self, **kwargs):
+        # Ensure that any credentials set get added to every request.
+        headers = kwargs.setdefault('headers', [])
+        for key, value in self._credentials.items():
+            name = key.removeprefix('HTTP_').lower().replace('_', '-')
+            headers.append((name.encode('ascii'), str(value).encode('latin1')))
+        return await DjangoAsyncClient.request(self, **kwargs)
+
+    async def get(self, path, data=None, follow=False, **extra):
+        response = await super().get(path, data=data, **extra)
+        if follow:
+            response = await self._ahandle_redirects(response, data=data, **extra)
+        return response
+
+    async def post(self, path, data=None, format=None, content_type=None,
+                   follow=False, **extra):
+        response = await super().post(
+            path, data=data, format=format, content_type=content_type, **extra)
+        if follow:
+            response = await self._ahandle_redirects(response, data=data, format=format, content_type=content_type, **extra)
+        return response
+
+    async def put(self, path, data=None, format=None, content_type=None,
+                  follow=False, **extra):
+        response = await super().put(
+            path, data=data, format=format, content_type=content_type, **extra)
+        if follow:
+            response = await self._ahandle_redirects(response, data=data, format=format, content_type=content_type, **extra)
+        return response
+
+    async def patch(self, path, data=None, format=None, content_type=None,
+                    follow=False, **extra):
+        response = await super().patch(
+            path, data=data, format=format, content_type=content_type, **extra)
+        if follow:
+            response = await self._ahandle_redirects(response, data=data, format=format, content_type=content_type, **extra)
+        return response
+
+    async def delete(self, path, data=None, format=None, content_type=None,
+                     follow=False, **extra):
+        response = await super().delete(
+            path, data=data, format=format, content_type=content_type, **extra)
+        if follow:
+            response = await self._ahandle_redirects(response, data=data, format=format, content_type=content_type, **extra)
+        return response
+
+    async def options(self, path, data=None, format=None, content_type=None,
+                      follow=False, **extra):
+        response = await super().options(
+            path, data=data, format=format, content_type=content_type, **extra)
+        if follow:
+            response = await self._ahandle_redirects(response, data=data, format=format, content_type=content_type, **extra)
+        return response
+
+    async def alogout(self):
+        self._credentials = {}
+
+        # Also clear any `force_authenticate`
+        self.handler._force_user = None
+        self.handler._force_token = None
+
+        if await self.asession():
+            await super().alogout()
 
 
 class APITransactionTestCase(testcases.TransactionTestCase):

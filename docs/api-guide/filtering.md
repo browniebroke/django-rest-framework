@@ -354,6 +354,10 @@ Generic filters may also present an interface in the browsable API. To do so you
 
 The method should return a rendered HTML string.
 
+## Asynchronous filtering
+
+`BaseFilterBackend.afilter_queryset(request, queryset, view)` is the asynchronous counterpart of `.filter_queryset()`, used by [asynchronous views][async]. The default implementation runs `.filter_queryset()` in a thread, so existing filter backends work unchanged, including those validating filter values against the database. `SearchFilter` and `OrderingFilter` only build up lazy querysets, and never block.
+
 ## Third party packages
 
 The following third party packages provide additional filter implementations.
@@ -386,3 +390,4 @@ The [djangorestframework-word-filter][django-rest-framework-word-search-filter] 
 [JSONField]: https://docs.djangoproject.com/en/stable/ref/models/fields/#django.db.models.JSONField
 [postgres-search]: https://docs.djangoproject.com/en/stable/ref/contrib/postgres/search/
 [postgres-lookups]: https://docs.djangoproject.com/en/stable/ref/contrib/postgres/lookups/#unaccent
+[async]: ../topics/async.md

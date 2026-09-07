@@ -1,6 +1,7 @@
 """
 Provides a set of pluggable permission policies.
 """
+from asgiref.sync import sync_to_async
 from django.http import Http404
 
 from rest_framework import exceptions
@@ -75,6 +76,18 @@ class AND:
             self.op2.has_object_permission(request, view, obj)
         )
 
+    async def ahas_permission(self, request, view):
+        return (
+            await self.op1.ahas_permission(request, view) and
+            await self.op2.ahas_permission(request, view)
+        )
+
+    async def ahas_object_permission(self, request, view, obj):
+        return (
+            await self.op1.ahas_object_permission(request, view, obj) and
+            await self.op2.ahas_object_permission(request, view, obj)
+        )
+
 
 class OR:
     def __init__(self, op1, op2):
@@ -96,6 +109,21 @@ class OR:
             and self.op2.has_object_permission(request, view, obj)
         )
 
+    async def ahas_permission(self, request, view):
+        return (
+            await self.op1.ahas_permission(request, view) or
+            await self.op2.ahas_permission(request, view)
+        )
+
+    async def ahas_object_permission(self, request, view, obj):
+        return (
+            await self.op1.ahas_permission(request, view)
+            and await self.op1.ahas_object_permission(request, view, obj)
+        ) or (
+            await self.op2.ahas_permission(request, view)
+            and await self.op2.ahas_object_permission(request, view, obj)
+        )
+
 
 class NOT:
     def __init__(self, op1):
@@ -106,6 +134,12 @@ class NOT:
 
     def has_object_permission(self, request, view, obj):
         return not self.op1.has_object_permission(request, view, obj)
+
+    async def ahas_permission(self, request, view):
+        return not await self.op1.ahas_permission(request, view)
+
+    async def ahas_object_permission(self, request, view, obj):
+        return not await self.op1.ahas_object_permission(request, view, obj)
 
 
 class BasePermissionMetaclass(OperationHolderMixin, type):
@@ -129,8 +163,41 @@ class BasePermission(metaclass=BasePermissionMetaclass):
         """
         return True
 
+    async def ahas_permission(self, request, view):
+        """
+        Asynchronous counterpart of `has_permission()`, used by async views.
 
-class AllowAny(BasePermission):
+        The default implementation runs `has_permission()` in a thread, so
+        that permission classes performing blocking operations (such as
+        database queries) remain safe to use from async views. Override this
+        method to provide a native asynchronous implementation.
+        """
+        return await sync_to_async(self.has_permission)(request, view)
+
+    async def ahas_object_permission(self, request, view, obj):
+        """
+        Asynchronous counterpart of `has_object_permission()`.
+
+        The default implementation runs `has_object_permission()` in a thread.
+        """
+        return await sync_to_async(self.has_object_permission)(request, view, obj)
+
+
+class _NonBlockingPermission(BasePermission):
+    """
+    Base class for permissions that never perform blocking operations, and
+    can therefore call the synchronous implementation directly from async
+    views without dispatching to a thread.
+    """
+
+    async def ahas_permission(self, request, view):
+        return self.has_permission(request, view)
+
+    async def ahas_object_permission(self, request, view, obj):
+        return self.has_object_permission(request, view, obj)
+
+
+class AllowAny(_NonBlockingPermission):
     """
     Allow any access.
     This isn't strictly required, since you could use an empty
@@ -142,7 +209,7 @@ class AllowAny(BasePermission):
         return True
 
 
-class IsAuthenticated(BasePermission):
+class IsAuthenticated(_NonBlockingPermission):
     """
     Allows access only to authenticated users.
     """
@@ -151,7 +218,7 @@ class IsAuthenticated(BasePermission):
         return bool(request.user and request.user.is_authenticated)
 
 
-class IsAdminUser(BasePermission):
+class IsAdminUser(_NonBlockingPermission):
     """
     Allows access only to admin users.
     """
@@ -160,7 +227,7 @@ class IsAdminUser(BasePermission):
         return bool(request.user and request.user.is_staff)
 
 
-class IsAuthenticatedOrReadOnly(BasePermission):
+class IsAuthenticatedOrReadOnly(_NonBlockingPermission):
     """
     The request is authenticated as a user, or is a read-only request.
     """
@@ -230,7 +297,12 @@ class DjangoModelPermissions(BasePermission):
             return queryset
         return view.queryset
 
-    def has_permission(self, request, view):
+    def _get_perms_to_check(self, request, view):
+        """
+        Return either a boolean, if the permission check can be decided
+        without consulting the user's permissions, or the list of permission
+        codes that the user is required to have.
+        """
         if not request.user or (
            not request.user.is_authenticated and self.authenticated_users_only):
             return False
@@ -241,9 +313,22 @@ class DjangoModelPermissions(BasePermission):
             return True
 
         queryset = self._queryset(view)
-        perms = self.get_required_permissions(request.method, queryset.model)
+        return self.get_required_permissions(request.method, queryset.model)
 
+    def has_permission(self, request, view):
+        perms = self._get_perms_to_check(request, view)
+        if isinstance(perms, bool):
+            return perms
         return request.user.has_perms(perms)
+
+    async def ahas_permission(self, request, view):
+        perms = self._get_perms_to_check(request, view)
+        if isinstance(perms, bool):
+            return perms
+        return await request.user.ahas_perms(perms)
+
+    async def ahas_object_permission(self, request, view, obj):
+        return self.has_object_permission(request, view, obj)
 
 
 class DjangoModelPermissionsOrAnonReadOnly(DjangoModelPermissions):
@@ -306,6 +391,27 @@ class DjangoObjectPermissions(DjangoModelPermissions):
 
             read_perms = self.get_required_object_permissions('GET', model_cls)
             if not user.has_perms(read_perms, obj):
+                raise Http404
+
+            # Has read permissions.
+            return False
+
+        return True
+
+    async def ahas_object_permission(self, request, view, obj):
+        # authentication checks have already executed via ahas_permission
+        queryset = self._queryset(view)
+        model_cls = queryset.model
+        user = request.user
+
+        perms = self.get_required_object_permissions(request.method, model_cls)
+
+        if not await user.ahas_perms(perms, obj):
+            if request.method in SAFE_METHODS:
+                raise Http404
+
+            read_perms = self.get_required_object_permissions('GET', model_cls)
+            if not await user.ahas_perms(read_perms, obj):
                 raise Http404
 
             # Has read permissions.

@@ -107,6 +107,10 @@ Then configure your settings to use this custom class:
         'DEFAULT_METADATA_CLASS': 'myproject.apps.core.MinimalMetadata'
     }
 
+## Asynchronous metadata
+
+`BaseMetadata.adetermine_metadata(request, view)` is the asynchronous counterpart of `.determine_metadata()`, used when handling `OPTIONS` requests to [asynchronous views][async]. The default implementation runs `.determine_metadata()` in a thread, so existing metadata classes work unchanged. `SimpleMetadata` provides a native async implementation.
+
 ## Third party packages
 
 The following third party packages provide additional metadata implementations.
@@ -122,3 +126,4 @@ If you wish to do so, it also provides an exporter that can export those schema 
 [no-options]: https://www.mnot.net/blog/2012/10/29/NO_OPTIONS
 [json-schema]: https://json-schema.org/
 [drf-schema-adapter]: https://github.com/drf-forms/drf-schema-adapter
+[async]: ../topics/async.md

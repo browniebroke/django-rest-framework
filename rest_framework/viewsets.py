@@ -19,8 +19,11 @@ automatically.
 from functools import update_wrapper
 from inspect import getmembers
 
+from asgiref.sync import iscoroutinefunction, markcoroutinefunction
+from django.core.exceptions import ImproperlyConfigured
 from django.urls import NoReverseMatch
 from django.utils.decorators import classonlymethod
+from django.utils.functional import classproperty
 from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework import generics, mixins, views
@@ -53,6 +56,49 @@ class ViewSetMixin:
 
     view = MyViewSet.as_view({'get': 'list', 'post': 'create'})
     """
+
+    # The names of the actions provided by the built-in mixins. Together with
+    # any extra `@action` methods, these determine whether a viewset is async.
+    standard_action_names = (
+        'list', 'create', 'retrieve', 'update', 'partial_update', 'destroy'
+    )
+
+    @classproperty
+    def view_is_async(cls):
+        """
+        Whether the viewset's actions are asynchronous.
+
+        This mirrors Django's `View.view_is_async`, but inspects the viewset's
+        actions (the standard `list()`, `create()`, etc. actions plus any
+        extra `@action` methods) rather than the HTTP method handlers, since
+        viewsets only bind actions to HTTP methods when `as_view()` is called.
+
+        As with Django's views, all actions must either be sync or async.
+        """
+        handlers = []
+        seen = set()
+        # Walk the class dictionaries directly, rather than using `getattr()`
+        # or `inspect.getmembers()`, so that descriptors (including this
+        # property) are not triggered.
+        for klass in cls.__mro__:
+            for name, attr in vars(klass).items():
+                if name in seen:
+                    continue
+                seen.add(name)
+                if not callable(attr):
+                    continue
+                if name in cls.standard_action_names or _is_extra_action(attr):
+                    handlers.append(attr)
+
+        if not handlers:
+            return False
+        is_async = iscoroutinefunction(handlers[0])
+        if not all(iscoroutinefunction(h) == is_async for h in handlers[1:]):
+            raise ImproperlyConfigured(
+                f"{cls.__qualname__} actions must either be all sync or all "
+                "async."
+            )
+        return is_async
 
     @classonlymethod
     def as_view(cls, actions=None, **initkwargs):
@@ -99,6 +145,24 @@ class ViewSetMixin:
             raise TypeError("%s() received both `name` and `suffix`, which are "
                             "mutually exclusive arguments." % (cls.__name__))
 
+        # Ensure the requested actions are consistent with the sync/async
+        # nature of the viewset, so that `dispatch()` behaves as expected.
+        is_async = cls.view_is_async
+        for action in actions.values():
+            handler = getattr(cls, action, None)
+            if handler is not None and iscoroutinefunction(handler) != is_async:
+                raise ImproperlyConfigured(
+                    "%s.as_view() was passed the %s action %r, but the viewset's "
+                    "actions are %s. All actions must either be sync or async. "
+                    "Note that custom actions must be decorated with `@action` "
+                    "in order to be taken into account." % (
+                        cls.__qualname__,
+                        'async' if not is_async else 'sync',
+                        action,
+                        'sync' if not is_async else 'async',
+                    )
+                )
+
         def view(request, *args, **kwargs):
             self = cls(**initkwargs)
 
@@ -140,6 +204,11 @@ class ViewSetMixin:
         # Exempt from Django's LoginRequiredMiddleware. Users should set
         # DEFAULT_PERMISSION_CLASSES to 'rest_framework.permissions.IsAuthenticated' instead
         view.login_required = False
+
+        # Mark the callback if the viewset is async, as Django does in
+        # `View.as_view()`, so that the handler awaits it.
+        if is_async:
+            markcoroutinefunction(view)
 
         return csrf_exempt(view)
 
@@ -249,5 +318,27 @@ class ModelViewSet(mixins.CreateModelMixin,
     """
     A viewset that provides default `create()`, `retrieve()`, `update()`,
     `partial_update()`, `destroy()` and `list()` actions.
+    """
+    pass
+
+
+class AsyncReadOnlyModelViewSet(mixins.AsyncRetrieveModelMixin,
+                                mixins.AsyncListModelMixin,
+                                GenericViewSet):
+    """
+    An async viewset that provides default `list()` and `retrieve()` actions.
+    """
+    pass
+
+
+class AsyncModelViewSet(mixins.AsyncCreateModelMixin,
+                        mixins.AsyncRetrieveModelMixin,
+                        mixins.AsyncUpdateModelMixin,
+                        mixins.AsyncDestroyModelMixin,
+                        mixins.AsyncListModelMixin,
+                        GenericViewSet):
+    """
+    An async viewset that provides default `create()`, `retrieve()`,
+    `update()`, `partial_update()`, `destroy()` and `list()` actions.
     """
     pass

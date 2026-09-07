@@ -11,6 +11,7 @@ import contextlib
 import datetime
 import sys
 
+from asgiref.sync import async_to_sync, iscoroutinefunction
 from django import forms
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -802,7 +803,12 @@ class AdminRenderer(BrowsableAPIRenderer):
                     if not isinstance(data, dict):
                         data = {api_settings.NON_FIELD_ERRORS_KEY: data}
                 else:
-                    response = view.get(request, *view.args, **view.kwargs)
+                    handler = view.get
+                    if iscoroutinefunction(handler):
+                        # Rendering always happens outside of the event loop,
+                        # so an async handler can safely be run to completion.
+                        handler = async_to_sync(handler)
+                    response = handler(request, *view.args, **view.kwargs)
                     data = response.data
 
         template = loader.get_template(self.template)

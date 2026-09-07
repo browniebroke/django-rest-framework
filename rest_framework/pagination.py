@@ -8,6 +8,7 @@ from base64 import b64decode, b64encode
 from collections import namedtuple
 from urllib import parse
 
+from asgiref.sync import sync_to_async
 from django.core.paginator import InvalidPage
 from django.core.paginator import Paginator as DjangoPaginator
 from django.template import loader
@@ -130,11 +131,40 @@ PageLink = namedtuple('PageLink', ['url', 'number', 'is_active', 'is_break'])
 PAGE_BREAK = PageLink(url=None, number=None, is_active=False, is_break=True)
 
 
+async def _alist(iterable):
+    """
+    Evaluate a queryset (or any async iterable) into a list without blocking,
+    falling back to `list()` for regular iterables.
+    """
+    if hasattr(iterable, '__aiter__'):
+        return [item async for item in iterable]
+    return list(iterable)
+
+
+async def _acount(sequence):
+    """
+    Determine an object count, supporting either querysets or regular lists.
+    """
+    try:
+        return await sequence.acount()
+    except (AttributeError, TypeError):
+        return len(sequence)
+
+
 class BasePagination:
     display_page_controls = False
 
     def paginate_queryset(self, queryset, request, view=None):  # pragma: no cover
         raise NotImplementedError('paginate_queryset() must be implemented.')
+
+    async def apaginate_queryset(self, queryset, request, view=None):
+        """
+        Asynchronous counterpart of `paginate_queryset()`, used by async views.
+
+        The default implementation runs `paginate_queryset()` in a thread.
+        Override this method to provide a native asynchronous implementation.
+        """
+        return await sync_to_async(self.paginate_queryset)(queryset, request, view)
 
     def get_paginated_response(self, data):  # pragma: no cover
         raise NotImplementedError('get_paginated_response() must be implemented.')
@@ -210,6 +240,35 @@ class PageNumberPagination(BasePagination):
             # The browsable API should display pagination controls.
             self.display_page_controls = True
 
+        return list(self.page)
+
+    async def apaginate_queryset(self, queryset, request, view=None):
+        self.request = request
+        page_size = self.get_page_size(request)
+        if not page_size:
+            return None
+
+        paginator = self.django_paginator_class(queryset, page_size)
+        # Resolve the object count up-front, so that the Django paginator
+        # doesn't perform a blocking database query from the event loop.
+        paginator.count = await _acount(queryset)
+        page_number = self.get_page_number(request, paginator)
+
+        try:
+            self.page = paginator.page(page_number)
+        except InvalidPage as exc:
+            msg = self.invalid_page_message.format(
+                page_number=page_number, message=str(exc)
+            )
+            raise NotFound(msg)
+
+        if paginator.num_pages > 1 and self.template is not None:
+            # The browsable API should display pagination controls.
+            self.display_page_controls = True
+
+        # Evaluate the page's queryset slice without blocking, and store the
+        # results on the page so that it isn't evaluated again.
+        self.page.object_list = await _alist(self.page.object_list)
         return list(self.page)
 
     def get_page_number(self, request, paginator):
@@ -361,6 +420,21 @@ class LimitOffsetPagination(BasePagination):
             return []
         return list(queryset[self.offset:self.offset + self.limit])
 
+    async def apaginate_queryset(self, queryset, request, view=None):
+        self.request = request
+        self.limit = self.get_limit(request)
+        if self.limit is None:
+            return None
+
+        self.count = await self.aget_count(queryset)
+        self.offset = self.get_offset(request)
+        if self.count > self.limit and self.template is not None:
+            self.display_page_controls = True
+
+        if self.count == 0 or self.offset > self.count:
+            return []
+        return await _alist(queryset[self.offset:self.offset + self.limit])
+
     def get_paginated_response(self, data):
         return Response({
             'count': self.count,
@@ -491,6 +565,12 @@ class LimitOffsetPagination(BasePagination):
         except (AttributeError, TypeError):
             return len(queryset)
 
+    async def aget_count(self, queryset):
+        """
+        Asynchronous counterpart of `get_count()`.
+        """
+        return await _acount(queryset)
+
     def get_schema_operation_parameters(self, view):
         parameters = [
             {
@@ -549,6 +629,35 @@ class CursorPagination(BasePagination):
         if not self.page_size:
             return None
 
+        queryset, offset, reverse, current_position = self._prepare_queryset(
+            queryset, request, view
+        )
+
+        # If we have an offset cursor then offset the entire page by that amount.
+        # We also always fetch an extra item in order to determine if there is a
+        # page following on from this one.
+        results = list(queryset[offset:offset + self.page_size + 1])
+        return self._finalize_page(results, offset, reverse, current_position)
+
+    async def apaginate_queryset(self, queryset, request, view=None):
+        self.request = request
+        self.page_size = self.get_page_size(request)
+        if not self.page_size:
+            return None
+
+        queryset, offset, reverse, current_position = self._prepare_queryset(
+            queryset, request, view
+        )
+
+        results = await _alist(queryset[offset:offset + self.page_size + 1])
+        return self._finalize_page(results, offset, reverse, current_position)
+
+    def _prepare_queryset(self, queryset, request, view):
+        """
+        Decode the cursor and apply the ordering and position filtering to
+        the queryset. Returns the queryset along with the decoded cursor
+        details.
+        """
         self.base_url = request.build_absolute_uri()
         self.ordering = self.get_ordering(request, queryset, view)
 
@@ -578,10 +687,13 @@ class CursorPagination(BasePagination):
 
             queryset = queryset.filter(**kwargs)
 
-        # If we have an offset cursor then offset the entire page by that amount.
-        # We also always fetch an extra item in order to determine if there is a
-        # page following on from this one.
-        results = list(queryset[offset:offset + self.page_size + 1])
+        return queryset, offset, reverse, current_position
+
+    def _finalize_page(self, results, offset, reverse, current_position):
+        """
+        Given the fetched results (one more than the page size, if available),
+        determine the page contents and the next/previous positions.
+        """
         self.page = list(results[:self.page_size])
 
         # Determine the position of the final item following the page.

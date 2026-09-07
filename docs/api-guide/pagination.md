@@ -334,6 +334,10 @@ API responses for list endpoints will now include a `Link` header, instead of in
 
 *A custom pagination style, using the 'Link' header*
 
+## Asynchronous pagination
+
+`BasePagination.apaginate_queryset(queryset, request, view=None)` is the asynchronous counterpart of `.paginate_queryset()`, used by [asynchronous views][async]. The default implementation runs `.paginate_queryset()` in a thread, so existing pagination classes work unchanged. The built-in pagination classes provide native async implementations using `acount()` and asynchronous queryset iteration.
+
 ---
 
 ## HTML pagination controls
@@ -384,3 +388,4 @@ The [`django-rest-framework-link-header-pagination` package][drf-link-header-pag
 [disqus-cursor-api]: https://cra.mr/2011/03/08/building-cursors-for-the-disqus-api
 [float_cursor_pagination_example]: https://gist.github.com/keturn/8bc88525a183fd41c73ffb729b8865be#file-fpcursorpagination-py
 [github-traversing-with-pagination]: https://docs.github.com/en/rest/guides/traversing-with-pagination
+[async]: ../topics/async.md

@@ -5,6 +5,7 @@ returned by list views.
 import operator
 from functools import reduce
 
+from asgiref.sync import sync_to_async
 from django.core.exceptions import FieldDoesNotExist, ImproperlyConfigured
 from django.db import models
 from django.db.models.constants import LOOKUP_SEP
@@ -45,11 +46,34 @@ class BaseFilterBackend:
         """
         raise NotImplementedError(".filter_queryset() must be overridden.")
 
+    async def afilter_queryset(self, request, queryset, view):
+        """
+        Asynchronous counterpart of `filter_queryset()`, used by async views.
+
+        The default implementation runs `filter_queryset()` in a thread, so
+        that filter backends performing blocking operations (such as
+        validating filter values against the database) remain safe to use
+        from async views. Override this method to provide a native
+        asynchronous implementation.
+        """
+        return await sync_to_async(self.filter_queryset)(request, queryset, view)
+
     def get_schema_operation_parameters(self, view):
         return []
 
 
-class SearchFilter(BaseFilterBackend):
+class _NonBlockingFilterBackend(BaseFilterBackend):
+    """
+    Base class for filter backends that only ever build up a lazy queryset,
+    and can therefore be called directly from async views without
+    dispatching to a thread.
+    """
+
+    async def afilter_queryset(self, request, queryset, view):
+        return self.filter_queryset(request, queryset, view)
+
+
+class SearchFilter(_NonBlockingFilterBackend):
     # The URL query parameter used for the search.
     search_param = api_settings.SEARCH_PARAM
     template = 'rest_framework/filters/search.html'
@@ -210,7 +234,7 @@ class UnaccentedSearchFilter(SearchFilter):
     default_lookup = 'unaccent__icontains'
 
 
-class OrderingFilter(BaseFilterBackend):
+class OrderingFilter(_NonBlockingFilterBackend):
     # The URL query parameter used for the ordering.
     ordering_param = api_settings.ORDERING_PARAM
     ordering_fields = None

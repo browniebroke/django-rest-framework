@@ -1040,6 +1040,19 @@ The following class is an example of a generic serializer that can handle coerci
 
 ---
 
+## Asynchronous usage
+
+Validating, saving and serializing may perform blocking operations, such as database queries. From [asynchronous views][async], use the `ais_valid()`, `asave()` and `adata()` coroutines, which run their synchronous counterparts in a thread:
+
+    serializer = CommentSerializer(data=request.data)
+    await serializer.ais_valid(raise_exception=True)
+    await serializer.asave()
+    return Response(await serializer.adata())
+
+The `create()` and `update()` methods remain synchronous.
+
+---
+
 ## Advanced serializer usage
 
 ### Overriding serialization and deserialization behavior
@@ -1257,3 +1270,4 @@ The [drf-pydantic][drf-pydantic] package allows you to use Pydantic with Django 
 [drf-encrypt-content]: https://github.com/oguzhancelikarslan/drf-encrypt-content
 [drf-shapeless-serializers]: https://github.com/khaledsukkar2/drf-shapeless-serializers
 [drf-pydantic]: https://github.com/georgebv/drf-pydantic
+[async]: ../topics/async.md

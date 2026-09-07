@@ -6,6 +6,7 @@ some fairly ad-hoc information about the view.
 Future implementations might use JSON schema or other definitions in order
 to return this information in a more standardized way.
 """
+from asgiref.sync import sync_to_async
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.utils.encoding import force_str
@@ -22,6 +23,15 @@ class BaseMetadata:
         Used to return responses for OPTIONS requests.
         """
         raise NotImplementedError(".determine_metadata() must be overridden.")
+
+    async def adetermine_metadata(self, request, view):
+        """
+        Asynchronous counterpart of `determine_metadata()`, used by async views.
+
+        The default implementation runs `determine_metadata()` in a thread.
+        Override this method to provide a native asynchronous implementation.
+        """
+        return await sync_to_async(self.determine_metadata)(request, view)
 
 
 class SimpleMetadata(BaseMetadata):
@@ -57,17 +67,32 @@ class SimpleMetadata(BaseMetadata):
     })
 
     def determine_metadata(self, request, view):
-        metadata = {
-            "name": view.get_view_name(),
-            "description": view.get_view_description(),
-            "renders": [renderer.media_type for renderer in view.renderer_classes],
-            "parses": [parser.media_type for parser in view.parser_classes],
-        }
+        metadata = self.get_view_metadata(view)
         if hasattr(view, 'get_serializer'):
             actions = self.determine_actions(request, view)
             if actions:
                 metadata['actions'] = actions
         return metadata
+
+    async def adetermine_metadata(self, request, view):
+        metadata = self.get_view_metadata(view)
+        if hasattr(view, 'get_serializer'):
+            actions = await self.adetermine_actions(request, view)
+            if actions:
+                metadata['actions'] = actions
+        return metadata
+
+    def get_view_metadata(self, view):
+        """
+        Return the metadata describing the view itself, regardless of the
+        actions it supports.
+        """
+        return {
+            "name": view.get_view_name(),
+            "description": view.get_view_description(),
+            "renders": [renderer.media_type for renderer in view.renderer_classes],
+            "parses": [parser.media_type for parser in view.parser_classes],
+        }
 
     def determine_actions(self, request, view):
         """
@@ -84,6 +109,32 @@ class SimpleMetadata(BaseMetadata):
                 # Test object permissions
                 if method == 'PUT' and hasattr(view, 'get_object'):
                     view.get_object()
+            except (exceptions.APIException, PermissionDenied, Http404):
+                pass
+            else:
+                # If user has appropriate permissions for the view, include
+                # appropriate metadata about the fields that should be supplied.
+                serializer = view.get_serializer()
+                actions[method] = self.get_serializer_info(serializer)
+            finally:
+                view.request = request
+
+        return actions
+
+    async def adetermine_actions(self, request, view):
+        """
+        Asynchronous counterpart of `determine_actions()`.
+        """
+        actions = {}
+        for method in {'PUT', 'POST'} & set(view.allowed_methods):
+            view.request = clone_request(request, method)
+            try:
+                # Test global permissions
+                if hasattr(view, 'acheck_permissions'):
+                    await view.acheck_permissions(view.request)
+                # Test object permissions
+                if method == 'PUT' and hasattr(view, 'aget_object'):
+                    await view.aget_object()
             except (exceptions.APIException, PermissionDenied, Http404):
                 pass
             else:

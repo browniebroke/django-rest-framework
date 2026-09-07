@@ -349,6 +349,21 @@ The following example will authenticate any incoming request as the user given b
 
             return (user, None)
 
+## Asynchronous authentication
+
+`BaseAuthentication.aauthenticate(request)` is the asynchronous counterpart of `.authenticate()`, used by [asynchronous views][async]. The default implementation runs `.authenticate()` in a thread, so existing authentication classes work unchanged. Override it to provide a native async implementation, using the asynchronous ORM or cache interfaces:
+
+    class ExampleAuthentication(authentication.BaseAuthentication):
+        def authenticate(self, request):
+            ...
+            return (user, None)
+
+        async def aauthenticate(self, request):
+            ...
+            return (user, None)
+
+The built-in authentication classes provide native async implementations. Always implement `.authenticate()` too, as it remains in use by synchronous views.
+
 ---
 
 ## Third party packages
@@ -492,3 +507,4 @@ More information can be found in the [Documentation](https://django-pyoidc.readt
 [login-required-middleware]: https://docs.djangoproject.com/en/stable/ref/middleware/#django.contrib.auth.middleware.LoginRequiredMiddleware
 [django-pyoidc]: https://github.com/makinacorpus/django_pyoidc
 [drf-auth-kit]: https://github.com/huynguyengl99/drf-auth-kit
+[async]: ../topics/async.md

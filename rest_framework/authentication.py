@@ -4,7 +4,8 @@ Provides various authentication policies.
 import base64
 import binascii
 
-from django.contrib.auth import authenticate, get_user_model
+from asgiref.sync import sync_to_async
+from django.contrib.auth import aauthenticate, authenticate, get_user_model
 from django.middleware.csrf import CsrfViewMiddleware
 from django.utils.translation import gettext_lazy as _
 
@@ -41,6 +42,17 @@ class BaseAuthentication:
         """
         raise NotImplementedError(".authenticate() must be overridden.")
 
+    async def aauthenticate(self, request):
+        """
+        Asynchronous counterpart of `authenticate()`, used by async views.
+
+        The default implementation runs `authenticate()` in a thread, so that
+        existing synchronous authentication classes keep working when used
+        from async views. Override this method to provide a native
+        asynchronous implementation.
+        """
+        return await sync_to_async(self.authenticate)(request)
+
     def authenticate_header(self, request):
         """
         Return a string to be used as the value of the `WWW-Authenticate`
@@ -60,6 +72,24 @@ class BasicAuthentication(BaseAuthentication):
         """
         Returns a `User` if a correct username and password have been supplied
         using HTTP Basic authentication.  Otherwise returns `None`.
+        """
+        credentials = self._get_credentials(request)
+        if credentials is None:
+            return None
+        userid, password = credentials
+        return self.authenticate_credentials(userid, password, request)
+
+    async def aauthenticate(self, request):
+        credentials = self._get_credentials(request)
+        if credentials is None:
+            return None
+        userid, password = credentials
+        return await self.aauthenticate_credentials(userid, password, request)
+
+    def _get_credentials(self, request):
+        """
+        Parse the `Authorization` header, returning a `(userid, password)`
+        two-tuple, or `None` if basic authentication was not attempted.
         """
         auth = get_authorization_header(request).split()
 
@@ -84,19 +114,15 @@ class BasicAuthentication(BaseAuthentication):
             msg = _('Invalid basic header. Credentials not correctly base64 encoded.')
             raise exceptions.AuthenticationFailed(msg)
 
-        return self.authenticate_credentials(userid, password, request)
+        return userid, password
 
-    def authenticate_credentials(self, userid, password, request=None):
-        """
-        Authenticate the userid and password against username and password
-        with optional request for context.
-        """
-        credentials = {
+    def _get_django_credentials(self, userid, password):
+        return {
             get_user_model().USERNAME_FIELD: userid,
             'password': password
         }
-        user = authenticate(request=request, **credentials)
 
+    def _validate_user(self, user):
         if user is None:
             raise exceptions.AuthenticationFailed(_('Invalid username/password.'))
 
@@ -104,6 +130,23 @@ class BasicAuthentication(BaseAuthentication):
             raise exceptions.AuthenticationFailed(_('User inactive or deleted.'))
 
         return (user, None)
+
+    def authenticate_credentials(self, userid, password, request=None):
+        """
+        Authenticate the userid and password against username and password
+        with optional request for context.
+        """
+        credentials = self._get_django_credentials(userid, password)
+        user = authenticate(request=request, **credentials)
+        return self._validate_user(user)
+
+    async def aauthenticate_credentials(self, userid, password, request=None):
+        """
+        Asynchronous counterpart of `authenticate_credentials()`.
+        """
+        credentials = self._get_django_credentials(userid, password)
+        user = await aauthenticate(request=request, **credentials)
+        return self._validate_user(user)
 
     def authenticate_header(self, request):
         return 'Basic realm="%s"' % self.www_authenticate_realm
@@ -123,6 +166,25 @@ class SessionAuthentication(BaseAuthentication):
         # Get the session-based user from the underlying HttpRequest object
         user = getattr(request._request, 'user', None)
 
+        return self._authenticate_user(request, user)
+
+    async def aauthenticate(self, request):
+        """
+        Asynchronous counterpart of `authenticate()`.
+
+        Uses `HttpRequest.auser()`, as provided by Django's
+        `AuthenticationMiddleware`, to avoid blocking database access from
+        the event loop.
+        """
+        auser = getattr(request._request, 'auser', None)
+        if auser is not None:
+            user = await auser()
+        else:
+            user = getattr(request._request, 'user', None)
+
+        return self._authenticate_user(request, user)
+
+    def _authenticate_user(self, request, user):
         # Unauthenticated, CSRF validation not required
         if not user or not user.is_active:
             return None
@@ -175,6 +237,22 @@ class TokenAuthentication(BaseAuthentication):
     """
 
     def authenticate(self, request):
+        token = self._get_token(request)
+        if token is None:
+            return None
+        return self.authenticate_credentials(token)
+
+    async def aauthenticate(self, request):
+        token = self._get_token(request)
+        if token is None:
+            return None
+        return await self.aauthenticate_credentials(token)
+
+    def _get_token(self, request):
+        """
+        Parse the `Authorization` header, returning the token key, or `None`
+        if token authentication was not attempted.
+        """
         auth = get_authorization_header(request).split()
 
         if not auth or auth[0].lower() != self.keyword.lower().encode():
@@ -188,12 +266,16 @@ class TokenAuthentication(BaseAuthentication):
             raise exceptions.AuthenticationFailed(msg)
 
         try:
-            token = auth[1].decode()
+            return auth[1].decode()
         except UnicodeError:
             msg = _('Invalid token header. Token string should not contain invalid characters.')
             raise exceptions.AuthenticationFailed(msg)
 
-        return self.authenticate_credentials(token)
+    def _validate_token(self, token):
+        if not token.user.is_active:
+            raise exceptions.AuthenticationFailed(_('User inactive or deleted.'))
+
+        return (token.user, token)
 
     def authenticate_credentials(self, key):
         model = self.get_model()
@@ -202,10 +284,19 @@ class TokenAuthentication(BaseAuthentication):
         except model.DoesNotExist:
             raise exceptions.AuthenticationFailed(_('Invalid token.'))
 
-        if not token.user.is_active:
-            raise exceptions.AuthenticationFailed(_('User inactive or deleted.'))
+        return self._validate_token(token)
 
-        return (token.user, token)
+    async def aauthenticate_credentials(self, key):
+        """
+        Asynchronous counterpart of `authenticate_credentials()`.
+        """
+        model = self.get_model()
+        try:
+            token = await model.objects.select_related('user').aget(key=key)
+        except model.DoesNotExist:
+            raise exceptions.AuthenticationFailed(_('Invalid token.'))
+
+        return self._validate_token(token)
 
     def authenticate_header(self, request):
         return self.keyword
@@ -228,5 +319,10 @@ class RemoteUserAuthentication(BaseAuthentication):
 
     def authenticate(self, request):
         user = authenticate(request=request, remote_user=request.META.get(self.header))
+        if user and user.is_active:
+            return (user, None)
+
+    async def aauthenticate(self, request):
+        user = await aauthenticate(request=request, remote_user=request.META.get(self.header))
         if user and user.is_active:
             return (user, None)

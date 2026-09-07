@@ -12,6 +12,7 @@ import io
 import sys
 from contextlib import contextmanager
 
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.http import HttpRequest, QueryDict
 from django.http.request import RawPostDataException
@@ -136,6 +137,9 @@ class ForcedAuthentication:
     def authenticate(self, request):
         return (self.force_user, self.force_token)
 
+    async def aauthenticate(self, request):
+        return (self.force_user, self.force_token)
+
 
 class Request:
     """
@@ -244,6 +248,20 @@ class Request:
         """
         self._user = value
         self._request.user = value
+
+    async def auser(self):
+        """
+        Asynchronous counterpart of the `user` property.
+
+        Returns the user associated with the current request, as authenticated
+        by the authentication classes provided to the request. Once awaited,
+        `request.user`, `request.auth` and `request.successful_authenticator`
+        can be accessed without triggering any further authentication.
+        """
+        if not hasattr(self, '_user'):
+            with wrap_attributeerrors():
+                await self._aauthenticate()
+        return self._user
 
     @property
     def auth(self):
@@ -387,6 +405,30 @@ class Request:
         for authenticator in self.authenticators:
             try:
                 user_auth_tuple = authenticator.authenticate(self)
+            except exceptions.APIException:
+                self._not_authenticated()
+                raise
+
+            if user_auth_tuple is not None:
+                self._authenticator = authenticator
+                self.user, self.auth = user_auth_tuple
+                return
+
+        self._not_authenticated()
+
+    async def _aauthenticate(self):
+        """
+        Asynchronous counterpart of `_authenticate()`.
+
+        Authentication classes that do not provide a native `aauthenticate()`
+        implementation have their `authenticate()` method run in a thread.
+        """
+        for authenticator in self.authenticators:
+            aauthenticate = getattr(authenticator, 'aauthenticate', None)
+            if aauthenticate is None:
+                aauthenticate = sync_to_async(authenticator.authenticate)
+            try:
+                user_auth_tuple = await aauthenticate(self)
             except exceptions.APIException:
                 self._not_authenticated()
                 raise

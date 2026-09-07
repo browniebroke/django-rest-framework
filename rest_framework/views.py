@@ -328,6 +328,17 @@ class APIView(View):
         """
         request.user
 
+    async def aperform_authentication(self, request):
+        """
+        Asynchronous counterpart of `perform_authentication()`.
+
+        Note that if you override this and simply 'pass', then `request.user`
+        must be resolved with `await request.auser()` before being accessed,
+        as authentication may otherwise perform blocking operations from
+        within the event loop.
+        """
+        await request.auser()
+
     def check_permissions(self, request):
         """
         Check if the request should be permitted.
@@ -354,6 +365,30 @@ class APIView(View):
                     code=getattr(permission, 'code', None)
                 )
 
+    async def acheck_permissions(self, request):
+        """
+        Asynchronous counterpart of `check_permissions()`.
+        """
+        for permission in self.get_permissions():
+            if not await permission.ahas_permission(request, self):
+                self.permission_denied(
+                    request,
+                    message=getattr(permission, 'message', None),
+                    code=getattr(permission, 'code', None)
+                )
+
+    async def acheck_object_permissions(self, request, obj):
+        """
+        Asynchronous counterpart of `check_object_permissions()`.
+        """
+        for permission in self.get_permissions():
+            if not await permission.ahas_object_permission(request, self, obj):
+                self.permission_denied(
+                    request,
+                    message=getattr(permission, 'message', None),
+                    code=getattr(permission, 'code', None)
+                )
+
     def check_throttles(self, request):
         """
         Check if request should be throttled.
@@ -364,6 +399,20 @@ class APIView(View):
             if not throttle.allow_request(request, self):
                 throttle_durations.append(throttle.wait())
 
+        self._throttle_if_needed(request, throttle_durations)
+
+    async def acheck_throttles(self, request):
+        """
+        Asynchronous counterpart of `check_throttles()`.
+        """
+        throttle_durations = []
+        for throttle in self.get_throttles():
+            if not await throttle.aallow_request(request, self):
+                throttle_durations.append(throttle.wait())
+
+        self._throttle_if_needed(request, throttle_durations)
+
+    def _throttle_if_needed(self, request, throttle_durations):
         if throttle_durations:
             # Filter out `None` values which may happen in case of config / rate
             # changes, see #1438
@@ -419,6 +468,25 @@ class APIView(View):
         self.perform_authentication(request)
         self.check_permissions(request)
         self.check_throttles(request)
+
+    async def ainitial(self, request, *args, **kwargs):
+        """
+        Asynchronous counterpart of `initial()`, used when the view is async.
+        """
+        self.format_kwarg = self.get_format_suffix(**kwargs)
+
+        # Perform content negotiation and store the accepted info on the request
+        neg = self.perform_content_negotiation(request)
+        request.accepted_renderer, request.accepted_media_type = neg
+
+        # Determine the API version, if versioning is in use.
+        version, scheme = self.determine_version(request, *args, **kwargs)
+        request.version, request.versioning_scheme = version, scheme
+
+        # Ensure that the incoming request is permitted
+        await self.aperform_authentication(request)
+        await self.acheck_permissions(request)
+        await self.acheck_throttles(request)
 
     def finalize_response(self, request, response, *args, **kwargs):
         """
@@ -503,12 +571,19 @@ class APIView(View):
             them into appropriate Response objects.
         5. Finalizes and returns the response with proper rendering
             and headers applied.
+
+        If the view is async (i.e. its handler methods are coroutine
+        functions), a coroutine is returned instead of a response, in the
+        same way as Django's own class-based views behave.
         """
         self.args = args
         self.kwargs = kwargs
         request = self.initialize_request(request, *args, **kwargs)
         self.request = request
         self.headers = self.default_response_headers  # deprecate?
+
+        if self.view_is_async:
+            return self._async_dispatch(request, *args, **kwargs)
 
         try:
             self.initial(request, *args, **kwargs)
@@ -528,11 +603,42 @@ class APIView(View):
         self.response = self.finalize_response(request, response, *args, **kwargs)
         return self.response
 
+    async def _async_dispatch(self, request, *args, **kwargs):
+        """
+        The asynchronous half of `dispatch()`. Mirrors the synchronous
+        implementation, awaiting the asynchronous counterparts of `initial()`
+        and the handler method.
+        """
+        try:
+            await self.ainitial(request, *args, **kwargs)
+
+            # Get the appropriate handler method
+            if request.method.lower() in self.http_method_names:
+                handler = getattr(self, request.method.lower(),
+                                  self.http_method_not_allowed)
+            else:
+                handler = self.http_method_not_allowed
+
+            response = await handler(request, *args, **kwargs)
+
+        except Exception as exc:
+            response = self.handle_exception(exc)
+
+        self.response = self.finalize_response(request, response, *args, **kwargs)
+        return self.response
+
     def options(self, request, *args, **kwargs):
         """
         Handler method for HTTP 'OPTIONS' request.
         """
         if self.metadata_class is None:
             return self.http_method_not_allowed(request, *args, **kwargs)
+
+        if self.view_is_async:
+            async def func():
+                data = await self.metadata_class().adetermine_metadata(request, self)
+                return Response(data, status=status.HTTP_200_OK)
+            return func()
+
         data = self.metadata_class().determine_metadata(request, self)
         return Response(data, status=status.HTTP_200_OK)

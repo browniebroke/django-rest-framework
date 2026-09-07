@@ -313,6 +313,25 @@ You can use any of REST framework's test case classes as you would for the regul
 
 ---
 
+# AsyncAPIRequestFactory and AsyncAPIClient
+
+`AsyncAPIRequestFactory` and `AsyncAPIClient` are asynchronous counterparts of `APIRequestFactory` and `APIClient`, extending Django's `AsyncRequestFactory` and `AsyncClient`. The request methods of `AsyncAPIClient` are coroutines, and must be awaited:
+
+    from rest_framework.test import AsyncAPIClient
+
+    class AccountTests(TestCase):
+        async def test_list_accounts(self):
+            client = AsyncAPIClient()
+            client.force_authenticate(user=self.user)
+            response = await client.get('/accounts/')
+            self.assertEqual(response.status_code, 200)
+
+`credentials()` and `force_authenticate()` behave as with `APIClient`. Credentials may use either `HTTP_` prefixed WSGI style names or plain header names. Use `await client.alogout()` to clear the credentials, forced authentication and session.
+
+Async views may also be tested using the synchronous `APIClient`. See the [asynchronous support][async] topic for details.
+
+---
+
 ## URLPatternsTestCase
 
 REST framework also provides a test case class for isolating `urlpatterns` on a per-class basis. Note that this inherits from Django's `SimpleTestCase`, and will most likely need to be mixed with another test case class.
@@ -401,3 +420,4 @@ For example, to add support for using `format='html'` in test requests, you migh
 [refresh_from_db_docs]: https://docs.djangoproject.com/en/stable/ref/models/instances/#django.db.models.Model.refresh_from_db
 [session_objects]: https://requests.readthedocs.io/en/latest/user/advanced/#session-objects
 [provided_test_case_classes]: https://docs.djangoproject.com/en/stable/topics/testing/tools/#provided-test-case-classes
+[async]: ../topics/async.md

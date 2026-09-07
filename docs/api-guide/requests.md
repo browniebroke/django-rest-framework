@@ -72,7 +72,15 @@ If the request is unauthenticated the default value of `request.user` is an inst
 
 For more details see the [authentication documentation].
 
-### .auth
+### .auser()
+
+The asynchronous counterpart of `request.user`, for use from [asynchronous views][async]:
+
+    user = await request.auser()
+
+Authentication may perform blocking operations, so async code should await `request.auser()` rather than accessing `request.user` directly, unless authentication has already been performed. Once awaited, `request.user`, `request.auth` and `request.successful_authenticator` are populated and may be accessed directly.
+
+## .auth
 
 `request.auth` returns any additional authentication context.  The exact behavior of `request.auth` depends on the authentication policy being used, but it may typically be an instance of the token that the request was authenticated against.
 
@@ -132,3 +140,4 @@ Note that due to implementation reasons the `Request` class does not inherit fro
 [form data]: parsers.md#formparser
 [authentication documentation]: authentication.md
 [browser enhancements documentation]: ../topics/browser-enhancements.md
+[async]: ../topics/async.md

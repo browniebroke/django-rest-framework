@@ -57,8 +57,7 @@ class ViewSetMixin:
     view = MyViewSet.as_view({'get': 'list', 'post': 'create'})
     """
 
-    # The names of the actions provided by the built-in mixins. Together with
-    # any extra `@action` methods, these determine whether a viewset is async.
+    # The names of the actions provided by the built-in mixins.
     standard_action_names = (
         'list', 'create', 'retrieve', 'update', 'partial_update', 'destroy'
     )
@@ -66,14 +65,15 @@ class ViewSetMixin:
     @classproperty
     def view_is_async(cls):
         """
-        Whether the viewset's actions are asynchronous.
+        Whether all of the viewset's actions (the standard `list()`,
+        `create()`, etc. actions plus any extra `@action` methods) are
+        asynchronous.
 
-        This mirrors Django's `View.view_is_async`, but inspects the viewset's
-        actions (the standard `list()`, `create()`, etc. actions plus any
-        extra `@action` methods) rather than the HTTP method handlers, since
-        viewsets only bind actions to HTTP methods when `as_view()` is called.
-
-        As with Django's views, all actions must either be sync or async.
+        Unlike Django's `View.view_is_async`, viewsets may mix sync and async
+        actions, as long as the actions bound together to a single view by
+        `.as_view()` are consistent. Each view returned by `.as_view()` is
+        either sync or async depending on the actions it binds, and the
+        instance attribute `view_is_async` reflects this during a request.
         """
         handlers = []
         seen = set()
@@ -90,15 +90,7 @@ class ViewSetMixin:
                 if name in cls.standard_action_names or _is_extra_action(attr):
                     handlers.append(attr)
 
-        if not handlers:
-            return False
-        is_async = iscoroutinefunction(handlers[0])
-        if not all(iscoroutinefunction(h) == is_async for h in handlers[1:]):
-            raise ImproperlyConfigured(
-                f"{cls.__qualname__} actions must either be all sync or all "
-                "async."
-            )
-        return is_async
+        return bool(handlers) and all(iscoroutinefunction(h) for h in handlers)
 
     @classonlymethod
     def as_view(cls, actions=None, **initkwargs):
@@ -145,26 +137,27 @@ class ViewSetMixin:
             raise TypeError("%s() received both `name` and `suffix`, which are "
                             "mutually exclusive arguments." % (cls.__name__))
 
-        # Ensure the requested actions are consistent with the sync/async
-        # nature of the viewset, so that `dispatch()` behaves as expected.
-        is_async = cls.view_is_async
-        for action in actions.values():
-            handler = getattr(cls, action, None)
-            if handler is not None and iscoroutinefunction(handler) != is_async:
-                raise ImproperlyConfigured(
-                    "%s.as_view() was passed the %s action %r, but the viewset's "
-                    "actions are %s. All actions must either be sync or async. "
-                    "Note that custom actions must be decorated with `@action` "
-                    "in order to be taken into account." % (
-                        cls.__qualname__,
-                        'async' if not is_async else 'sync',
-                        action,
-                        'sync' if not is_async else 'async',
-                    )
-                )
+        # Determine whether the view is async from the actions being bound,
+        # which must either be all sync or all async, as with the handlers of
+        # Django's class-based views. Different `as_view()` bindings of the
+        # same viewset may differ, allowing sync and async actions to coexist.
+        handlers = [
+            getattr(cls, action) for action in actions.values()
+            if hasattr(cls, action)
+        ]
+        is_async = bool(handlers) and iscoroutinefunction(handlers[0])
+        if not all(iscoroutinefunction(h) == is_async for h in handlers):
+            raise ImproperlyConfigured(
+                "%s.as_view() received the actions %r, which must either be "
+                "all sync or all async." % (cls.__qualname__, actions)
+            )
 
         def view(request, *args, **kwargs):
             self = cls(**initkwargs)
+
+            # Reflect whether this particular view is async on the instance,
+            # so that `dispatch()` and `options()` behave accordingly.
+            self.view_is_async = is_async
 
             if 'get' in actions and 'head' not in actions:
                 actions['head'] = actions['get']

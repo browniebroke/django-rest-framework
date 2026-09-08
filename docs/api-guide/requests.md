@@ -72,7 +72,15 @@ If the request is unauthenticated the default value of `request.user` is an inst
 
 For more details see the [authentication documentation].
 
-### .auser()
+### .adata()
+
+The asynchronous counterpart of `request.data`, for use from [asynchronous views][async] when handling large request bodies, such as multipart file uploads, which may involve blocking disk I/O when parsed:
+
+    data = await request.adata()
+
+The request is parsed in a thread, after which `request.data`, `request.FILES` and `request.POST` may be accessed directly. Parsing JSON and other small bodies with `request.data` directly is fine.
+
+## .auser()
 
 The asynchronous counterpart of `request.user`, for use from [asynchronous views][async]:
 

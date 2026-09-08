@@ -13,7 +13,7 @@ from django.core.exceptions import (
 from django.test import TestCase, override_settings
 from django.urls import path
 
-from rest_framework import permissions, status
+from rest_framework import exceptions, permissions, status
 from rest_framework.authentication import (
     BaseAuthentication, BasicAuthentication, SessionAuthentication,
     TokenAuthentication
@@ -103,6 +103,19 @@ class SyncOnlyAuthentication(BaseAuthentication):
         return (User.objects.get(username=username), 'sync-only')
 
 
+class TenantTokenAuthentication(TokenAuthentication):
+    """
+    Overrides only the sync `authenticate_credentials()`, as would be written
+    for sync views. The customization must not be bypassed by the native async
+    implementation.
+    """
+    def authenticate_credentials(self, key):
+        user, token = super().authenticate_credentials(key)
+        if not user.username.startswith('tenant-'):
+            raise exceptions.AuthenticationFailed('Wrong tenant.')
+        return (user, token)
+
+
 class DuckTypedAuthentication:
     """
     An authentication class that doesn't extend `BaseAuthentication`.
@@ -151,6 +164,17 @@ class SyncOnlyDBPermission(BasePermission):
 
     def has_permission(self, request, view):
         return BasicModel.objects.exists()
+
+
+class DuckTypedPermission:
+    """
+    A permission class that doesn't extend `BasePermission`.
+    """
+    def has_permission(self, request, view):
+        return BasicModel.objects.exists()
+
+    def has_object_permission(self, request, view, obj):
+        return True
 
 
 class NativeAsyncPermission(BasePermission):
@@ -242,6 +266,19 @@ class User3PerMinuteThrottle(UserRateThrottle):
     rate = '3/min'
 
 
+class LoggingThrottle(AnonRateThrottle):
+    """
+    Overrides only the sync `throttle_success()` hook, which must not be
+    bypassed by the native async implementation.
+    """
+    rate = '3/min'
+    successes = []
+
+    def throttle_success(self):
+        self.successes.append(self.key)
+        return super().throttle_success()
+
+
 class SyncOnlyThrottle(BaseThrottle):
     """
     A third-party style throttle only implementing the sync API.
@@ -281,6 +318,42 @@ class ScopedThrottledView(APIView):
 
     async def get(self, request):
         return Response({'ok': True})
+
+
+class LoggingThrottledView(APIView):
+    authentication_classes = []
+    permission_classes = []
+    throttle_classes = [LoggingThrottle]
+
+    async def get(self, request):
+        return Response({'ok': True})
+
+
+class SyncCheckPermissionsView(APIView):
+    """
+    Overrides only the sync `check_permissions()` hook, as a sync view would.
+    """
+    authentication_classes = []
+    permission_classes = []
+
+    def check_permissions(self, request):
+        if not BasicModel.objects.exists():
+            self.permission_denied(request, message='No basic models yet.')
+
+    async def get(self, request):
+        return Response({'ok': True})
+
+
+class UploadView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    async def post(self, request):
+        data = await request.adata()
+        return Response({
+            'text': data['text'],
+            'file': request.FILES['file'].read().decode(),
+        })
 
 
 class SyncThrottledView(APIView):
@@ -331,11 +404,14 @@ urlpatterns = [
     path('auth/duck-typed/', make_auth_view(DuckTypedAuthentication).as_view()),
     path('auth/native/', make_auth_view(NativeAsyncAuthentication).as_view()),
     path('auth/token/', make_auth_view(TokenAuthentication).as_view()),
+    path('auth/tenant-token/', make_auth_view(TenantTokenAuthentication).as_view()),
     path('auth/basic/', make_auth_view(BasicAuthentication).as_view()),
     path('auth/session/', make_auth_view(SessionAuthentication).as_view()),
     path('auth/multiple/', make_auth_view(TokenAuthentication, SessionAuthentication).as_view()),
     path('perm/sync-only/', make_permission_view(SyncOnlyDBPermission).as_view()),
     path('perm/native/', make_permission_view(NativeAsyncPermission).as_view()),
+    path('perm/duck-typed/', make_permission_view(DuckTypedPermission).as_view()),
+    path('perm/sync-check/', SyncCheckPermissionsView.as_view()),
     path('perm/and/', make_permission_view(NativeAsyncPermission & SyncOnlyDBPermission).as_view()),
     path('perm/or/', make_permission_view(NativeAsyncPermission | SyncOnlyDBPermission).as_view()),
     path('perm/not/', make_permission_view(~NativeAsyncPermission).as_view()),
@@ -347,6 +423,8 @@ urlpatterns = [
     path('throttle/user/', UserThrottledView.as_view()),
     path('throttle/scoped/', ScopedThrottledView.as_view()),
     path('throttle/sync/', SyncThrottledView.as_view()),
+    path('throttle/logging/', LoggingThrottledView.as_view()),
+    path('upload/', UploadView.as_view()),
     path('metadata/', MetadataListView.as_view()),
     path('metadata/<int:pk>/', MetadataDetailView.as_view()),
 ]
@@ -412,6 +490,13 @@ class AsyncAPIViewTests(TestCase):
 
     def test_function_based_view_is_async(self):
         assert async_function_view.cls.view_is_async is True
+
+    async def test_adata_with_multipart_upload(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        upload = SimpleUploadedFile('hello.txt', b'hello', content_type='text/plain')
+        response = await self.client.post('/upload/', {'text': 'x', 'file': upload}, format='multipart')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data == {'text': 'x', 'file': 'hello'}
 
     async def test_browsable_api(self):
         response = await self.client.get('/async/?format=api')
@@ -490,6 +575,18 @@ class AsyncAuthenticationTests(TestCase):
         assert response.data == {
             'user': 'alice', 'auth': self.token.key, 'authenticator': 'TokenAuthentication'
         }
+
+    async def test_sync_authenticate_credentials_override_is_used(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = await self.client.get('/auth/tenant-token/')
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.data == {'detail': 'Wrong tenant.'}
+
+        self.user.username = 'tenant-alice'
+        await self.user.asave()
+        response = await self.client.get('/auth/tenant-token/')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['user'] == 'tenant-alice'
 
     async def test_token_authentication_invalid_token(self):
         response = await self.client.get('/auth/token/', headers={'Authorization': 'Token nope'})
@@ -584,6 +681,23 @@ class AsyncPermissionTests(TestCase):
         response = await self.client.get('/perm/and/', headers={'X-Allow': 'yes'})
         assert response.status_code == status.HTTP_200_OK
 
+    async def test_duck_typed_permission_runs_in_thread(self):
+        response = await self.client.get('/perm/duck-typed/')
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+        await BasicModel.objects.acreate(text='x')
+        response = await self.client.get('/perm/duck-typed/')
+        assert response.status_code == status.HTTP_200_OK
+
+    async def test_sync_check_permissions_override_is_used(self):
+        response = await self.client.get('/perm/sync-check/')
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.data == {'detail': 'No basic models yet.'}
+
+        await BasicModel.objects.acreate(text='x')
+        response = await self.client.get('/perm/sync-check/')
+        assert response.status_code == status.HTTP_200_OK
+
     async def test_permission_message(self):
         response = await self.client.get('/perm/deny/')
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -655,6 +769,11 @@ class AsyncThrottlingTests(TestCase):
         finally:
             ScopedRateThrottle.THROTTLE_RATES = old_rates
 
+    async def test_sync_throttle_success_override_is_used(self):
+        LoggingThrottle.successes.clear()
+        await self.assert_throttled_after('/throttle/logging/', 3)
+        assert len(LoggingThrottle.successes) == 3
+
     async def test_sync_only_throttle_runs_in_thread(self):
         response = await self.client.get('/throttle/sync/')
         assert response.status_code == status.HTTP_200_OK
@@ -686,6 +805,27 @@ class AsyncMetadataTests(TestCase):
         assert response.status_code == status.HTTP_200_OK
         # The object lookup fails, so no PUT metadata is included.
         assert 'actions' not in response.data
+
+
+class SessionAuthenticationCachedUserTests(TestCase):
+    def test_reuses_user_cached_by_middleware(self):
+        from asgiref.sync import async_to_sync
+
+        from rest_framework.request import Request
+
+        user = User.objects.create_user('alice', 'alice@example.com', 'password')
+        http_request = APIRequestFactory().get('/')
+
+        async def auser():
+            raise AssertionError('The user should have been reused, not fetched.')
+
+        # Simulate `AuthenticationMiddleware` having resolved `request.user`.
+        http_request.user = user
+        http_request._cached_user = user
+        http_request.auser = auser
+
+        request = Request(http_request, authenticators=[SessionAuthentication()])
+        assert async_to_sync(request.auser)() == user
 
 
 class RequestAuserTests(TestCase):

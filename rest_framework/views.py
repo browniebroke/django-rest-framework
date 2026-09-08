@@ -1,6 +1,7 @@
 """
 Provides an APIView class that is the base of all views in REST framework.
 """
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.db import connections, models
@@ -18,6 +19,7 @@ from rest_framework.response import Response
 from rest_framework.schemas import DefaultSchema
 from rest_framework.settings import api_settings
 from rest_framework.utils import formatting
+from rest_framework.utils.asyncio import get_async_method, overrides_sync_only
 
 
 def get_view_name(view):
@@ -337,6 +339,8 @@ class APIView(View):
         as authentication may otherwise perform blocking operations from
         within the event loop.
         """
+        if overrides_sync_only(self, APIView, 'perform_authentication'):
+            return await sync_to_async(self.perform_authentication)(request)
         await request.auser()
 
     def check_permissions(self, request):
@@ -369,8 +373,10 @@ class APIView(View):
         """
         Asynchronous counterpart of `check_permissions()`.
         """
+        if overrides_sync_only(self, APIView, 'check_permissions'):
+            return await sync_to_async(self.check_permissions)(request)
         for permission in self.get_permissions():
-            if not await permission.ahas_permission(request, self):
+            if not await get_async_method(permission, 'has_permission')(request, self):
                 self.permission_denied(
                     request,
                     message=getattr(permission, 'message', None),
@@ -381,8 +387,10 @@ class APIView(View):
         """
         Asynchronous counterpart of `check_object_permissions()`.
         """
+        if overrides_sync_only(self, APIView, 'check_object_permissions'):
+            return await sync_to_async(self.check_object_permissions)(request, obj)
         for permission in self.get_permissions():
-            if not await permission.ahas_object_permission(request, self, obj):
+            if not await get_async_method(permission, 'has_object_permission')(request, self, obj):
                 self.permission_denied(
                     request,
                     message=getattr(permission, 'message', None),
@@ -405,9 +413,11 @@ class APIView(View):
         """
         Asynchronous counterpart of `check_throttles()`.
         """
+        if overrides_sync_only(self, APIView, 'check_throttles'):
+            return await sync_to_async(self.check_throttles)(request)
         throttle_durations = []
         for throttle in self.get_throttles():
-            if not await throttle.aallow_request(request, self):
+            if not await get_async_method(throttle, 'allow_request')(request, self):
                 throttle_durations.append(throttle.wait())
 
         self._throttle_if_needed(request, throttle_durations)
@@ -473,6 +483,9 @@ class APIView(View):
         """
         Asynchronous counterpart of `initial()`, used when the view is async.
         """
+        if overrides_sync_only(self, APIView, 'initial'):
+            return await sync_to_async(self.initial)(request, *args, **kwargs)
+
         self.format_kwarg = self.get_format_suffix(**kwargs)
 
         # Perform content negotiation and store the accepted info on the request
@@ -636,7 +649,8 @@ class APIView(View):
 
         if self.view_is_async:
             async def func():
-                data = await self.metadata_class().adetermine_metadata(request, self)
+                metadata = self.metadata_class()
+                data = await get_async_method(metadata, 'determine_metadata')(request, self)
                 return Response(data, status=status.HTTP_200_OK)
             return func()
 

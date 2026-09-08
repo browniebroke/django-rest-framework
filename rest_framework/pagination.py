@@ -18,6 +18,7 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.settings import api_settings
+from rest_framework.utils.asyncio import overrides_sync_only
 from rest_framework.utils.urls import remove_query_param, replace_query_param
 
 
@@ -243,6 +244,9 @@ class PageNumberPagination(BasePagination):
         return list(self.page)
 
     async def apaginate_queryset(self, queryset, request, view=None):
+        if overrides_sync_only(self, PageNumberPagination, 'paginate_queryset'):
+            return await super().apaginate_queryset(queryset, request, view)
+
         self.request = request
         page_size = self.get_page_size(request)
         if not page_size:
@@ -421,6 +425,9 @@ class LimitOffsetPagination(BasePagination):
         return list(queryset[self.offset:self.offset + self.limit])
 
     async def apaginate_queryset(self, queryset, request, view=None):
+        if overrides_sync_only(self, LimitOffsetPagination, 'paginate_queryset'):
+            return await super().apaginate_queryset(queryset, request, view)
+
         self.request = request
         self.limit = self.get_limit(request)
         if self.limit is None:
@@ -569,6 +576,8 @@ class LimitOffsetPagination(BasePagination):
         """
         Asynchronous counterpart of `get_count()`.
         """
+        if overrides_sync_only(self, LimitOffsetPagination, 'get_count'):
+            return await sync_to_async(self.get_count)(queryset)
         return await _acount(queryset)
 
     def get_schema_operation_parameters(self, view):
@@ -640,6 +649,9 @@ class CursorPagination(BasePagination):
         return self._finalize_page(results, offset, reverse, current_position)
 
     async def apaginate_queryset(self, queryset, request, view=None):
+        if overrides_sync_only(self, CursorPagination, 'paginate_queryset'):
+            return await super().apaginate_queryset(queryset, request, view)
+
         self.request = request
         self.page_size = self.get_page_size(request)
         if not self.page_size:

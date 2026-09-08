@@ -21,6 +21,7 @@ from django.utils.http import parse_header_parameters
 
 from rest_framework import exceptions
 from rest_framework.settings import api_settings
+from rest_framework.utils.asyncio import get_async_method
 
 
 def is_form_media_type(media_type):
@@ -225,6 +226,20 @@ class Request:
                 self._load_data_and_files()
         return self._full_data
 
+    async def adata(self):
+        """
+        Asynchronous counterpart of the `data` property.
+
+        Parsing the request may involve blocking I/O, for example when large
+        multipart uploads have been spooled to disk, so the request is parsed
+        in a thread. Once awaited, `request.data`, `request.FILES` and
+        `request.POST` can be accessed without any further parsing.
+        """
+        if not _hasattr(self, '_full_data'):
+            with wrap_attributeerrors():
+                await sync_to_async(self._load_data_and_files)()
+        return self._full_data
+
     @property
     def user(self):
         """
@@ -424,11 +439,8 @@ class Request:
         implementation have their `authenticate()` method run in a thread.
         """
         for authenticator in self.authenticators:
-            aauthenticate = getattr(authenticator, 'aauthenticate', None)
-            if aauthenticate is None:
-                aauthenticate = sync_to_async(authenticator.authenticate)
             try:
-                user_auth_tuple = await aauthenticate(self)
+                user_auth_tuple = await get_async_method(authenticator, 'authenticate')(self)
             except exceptions.APIException:
                 self._not_authenticated()
                 raise

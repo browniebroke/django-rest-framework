@@ -4,9 +4,12 @@ Basic building blocks for generic class based views.
 We don't bind behavior to http method handlers yet,
 which allows mixin classes to be composed in interesting ways.
 """
+from asgiref.sync import sync_to_async
+
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.settings import api_settings
+from rest_framework.utils.asyncio import overrides_sync_only
 
 
 class CreateModelMixin:
@@ -100,13 +103,18 @@ class DestroyModelMixin:
 # The action names (`create()`, `list()`, ...) are deliberately kept the same
 # as the synchronous mixins, so that routers, the `.action` attribute, and any
 # code relying on action names keep working unchanged.
+#
+# The `perform_*()` hooks become `aperform_*()` coroutines. If a class defines
+# a synchronous `perform_*()` hook without overriding its `aperform_*()`
+# counterpart, the synchronous hook is run in a thread, rather than being
+# silently ignored.
 
 class AsyncCreateModelMixin:
     """
     Create a model instance, asynchronously.
     """
     async def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=await request.adata())
         await serializer.ais_valid(raise_exception=True)
         await self.aperform_create(serializer)
         data = await serializer.adata()
@@ -114,6 +122,8 @@ class AsyncCreateModelMixin:
         return Response(data, status=status.HTTP_201_CREATED, headers=headers)
 
     async def aperform_create(self, serializer):
+        if overrides_sync_only(self, AsyncCreateModelMixin, 'perform_create'):
+            return await sync_to_async(self.perform_create)(serializer)
         await serializer.asave()
 
     def get_success_headers(self, data):
@@ -128,7 +138,7 @@ class AsyncListModelMixin:
     List a queryset, asynchronously.
     """
     async def list(self, request, *args, **kwargs):
-        queryset = await self.afilter_queryset(self.get_queryset())
+        queryset = await self.afilter_queryset(await self.aget_queryset())
 
         page = await self.apaginate_queryset(queryset)
         if page is not None:
@@ -156,7 +166,7 @@ class AsyncUpdateModelMixin:
     async def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = await self.aget_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer = self.get_serializer(instance, data=await request.adata(), partial=partial)
         await serializer.ais_valid(raise_exception=True)
         await self.aperform_update(serializer)
 
@@ -168,6 +178,8 @@ class AsyncUpdateModelMixin:
         return Response(await serializer.adata())
 
     async def aperform_update(self, serializer):
+        if overrides_sync_only(self, AsyncUpdateModelMixin, 'perform_update'):
+            return await sync_to_async(self.perform_update)(serializer)
         await serializer.asave()
 
     async def partial_update(self, request, *args, **kwargs):
@@ -185,4 +197,6 @@ class AsyncDestroyModelMixin:
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     async def aperform_destroy(self, instance):
+        if overrides_sync_only(self, AsyncDestroyModelMixin, 'perform_destroy'):
+            return await sync_to_async(self.perform_destroy)(instance)
         await instance.adelete()

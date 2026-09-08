@@ -10,6 +10,7 @@ from django.middleware.csrf import CsrfViewMiddleware
 from django.utils.translation import gettext_lazy as _
 
 from rest_framework import HTTP_HEADER_ENCODING, exceptions
+from rest_framework.utils.asyncio import overrides_sync_only
 
 
 def get_authorization_header(request):
@@ -50,6 +51,11 @@ class BaseAuthentication:
         existing synchronous authentication classes keep working when used
         from async views. Override this method to provide a native
         asynchronous implementation.
+
+        The native implementations of the built-in authentication classes
+        fall back to this behavior when a subclass overrides one of the
+        synchronous methods without also overriding its asynchronous
+        counterpart, so that the customization isn't bypassed.
         """
         return await sync_to_async(self.authenticate)(request)
 
@@ -80,6 +86,9 @@ class BasicAuthentication(BaseAuthentication):
         return self.authenticate_credentials(userid, password, request)
 
     async def aauthenticate(self, request):
+        if overrides_sync_only(self, BasicAuthentication, 'authenticate', 'authenticate_credentials'):
+            return await sync_to_async(self.authenticate)(request)
+
         credentials = self._get_credentials(request)
         if credentials is None:
             return None
@@ -176,11 +185,20 @@ class SessionAuthentication(BaseAuthentication):
         `AuthenticationMiddleware`, to avoid blocking database access from
         the event loop.
         """
-        auser = getattr(request._request, 'auser', None)
-        if auser is not None:
-            user = await auser()
+        if overrides_sync_only(self, SessionAuthentication, 'authenticate'):
+            return await sync_to_async(self.authenticate)(request)
+
+        if hasattr(request._request, '_cached_user'):
+            # `request.user` has already been evaluated, typically by
+            # middleware. Django caches the result of `request.user` and
+            # `request.auser()` separately, so reuse it to avoid a query.
+            user = request._request._cached_user
         else:
-            user = getattr(request._request, 'user', None)
+            auser = getattr(request._request, 'auser', None)
+            if auser is not None:
+                user = await auser()
+            else:
+                user = getattr(request._request, 'user', None)
 
         return self._authenticate_user(request, user)
 
@@ -243,6 +261,9 @@ class TokenAuthentication(BaseAuthentication):
         return self.authenticate_credentials(token)
 
     async def aauthenticate(self, request):
+        if overrides_sync_only(self, TokenAuthentication, 'authenticate', 'authenticate_credentials'):
+            return await sync_to_async(self.authenticate)(request)
+
         token = self._get_token(request)
         if token is None:
             return None
@@ -323,6 +344,9 @@ class RemoteUserAuthentication(BaseAuthentication):
             return (user, None)
 
     async def aauthenticate(self, request):
+        if overrides_sync_only(self, RemoteUserAuthentication, 'authenticate'):
+            return await sync_to_async(self.authenticate)(request)
+
         user = await aauthenticate(request=request, remote_user=request.META.get(self.header))
         if user and user.is_active:
             return (user, None)

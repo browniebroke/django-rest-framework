@@ -8,6 +8,7 @@ from django.core.cache import cache as default_cache
 from django.core.exceptions import ImproperlyConfigured
 
 from rest_framework.settings import api_settings
+from rest_framework.utils.asyncio import overrides_sync_only
 
 
 class BaseThrottle:
@@ -145,6 +146,9 @@ class SimpleRateThrottle(BaseThrottle):
         On success calls `athrottle_success`.
         On failure calls `throttle_failure`.
         """
+        if overrides_sync_only(self, SimpleRateThrottle, 'allow_request', 'throttle_success'):
+            return await super().aallow_request(request, view)
+
         if self.rate is None:
             return True
 
@@ -289,6 +293,9 @@ class ScopedRateThrottle(SimpleRateThrottle):
         return super().allow_request(request, view)
 
     async def aallow_request(self, request, view):
+        if overrides_sync_only(self, ScopedRateThrottle, 'allow_request'):
+            return await sync_to_async(self.allow_request)(request, view)
+
         if not self._determine_scope(view):
             return True
 

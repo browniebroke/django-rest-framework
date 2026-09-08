@@ -403,7 +403,7 @@ Using custom base classes is a good option if you have custom behavior that cons
 
 Asynchronous counterparts of the mixins and concrete generic views are provided, prefixed with `Async`: `AsyncCreateModelMixin`, `AsyncListModelMixin`, `AsyncRetrieveModelMixin`, `AsyncUpdateModelMixin`, `AsyncDestroyModelMixin`, and `AsyncCreateAPIView`, `AsyncListAPIView`, `AsyncRetrieveAPIView`, `AsyncDestroyAPIView`, `AsyncUpdateAPIView`, `AsyncListCreateAPIView`, `AsyncRetrieveUpdateAPIView`, `AsyncRetrieveDestroyAPIView` and `AsyncRetrieveUpdateDestroyAPIView`.
 
-The async mixins provide the same actions as the synchronous ones, and their save and deletion hooks are the coroutines `aperform_create()`, `aperform_update()` and `aperform_destroy()`. `GenericAPIView` additionally provides `aget_object()`, `afilter_queryset()` and `apaginate_queryset()`.
+The async mixins provide the same actions as the synchronous ones, and their save and deletion hooks are the coroutines `aperform_create()`, `aperform_update()` and `aperform_destroy()`. `GenericAPIView` additionally provides `aget_queryset()`, `aget_object()`, `afilter_queryset()` and `apaginate_queryset()`. Overriding only the synchronous method, such as `get_object()`, keeps working from async views: the overridden method is run in a thread.
 
     class UserList(generics.AsyncListCreateAPIView):
         queryset = User.objects.all()

@@ -65,7 +65,7 @@ You can determine your currently installed version using `pip show`:
 
 #### Features
 
-* Add support for asynchronous views, following the approach of Django's own async support. `APIView` handler methods, `@api_view` functions and viewset actions may be declared with `async def`, and async counterparts are provided for the generic views and mixins (`AsyncListCreateAPIView`, `AsyncModelViewSet`, ...), serializers (`ais_valid()`, `asave()`, `adata()`), requests (`await request.auser()`), and the authentication, permission, throttling, pagination, filtering and metadata policies (`aauthenticate()`, `ahas_permission()`, `aallow_request()`, `apaginate_queryset()`, `afilter_queryset()`, `adetermine_metadata()`). `AsyncAPIClient` and `AsyncAPIRequestFactory` are provided for testing. See the [asynchronous support](../topics/async.md) topic.
+* Add support for asynchronous views, following the approach of Django's own async support. `APIView` handler methods, `@api_view` functions and viewset actions may be declared with `async def`, and async counterparts are provided for the generic views and mixins (`AsyncListCreateAPIView`, `AsyncModelViewSet`, ...), serializers (`ais_valid()`, `asave()`, `adata()`), requests (`await request.auser()`, `await request.adata()`), generic views (`aget_queryset()`, `aget_object()`, ...), and the authentication, permission, throttling, pagination, filtering and metadata policies (`aauthenticate()`, `ahas_permission()`, `aallow_request()`, `apaginate_queryset()`, `afilter_queryset()`, `adetermine_metadata()`). `AsyncAPIClient` and `AsyncAPIRequestFactory` are provided for testing. See the [asynchronous support](../topics/async.md) topic.
 
 ---
 

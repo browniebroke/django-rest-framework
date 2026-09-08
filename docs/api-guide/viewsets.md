@@ -315,7 +315,7 @@ Again, as with `ModelViewSet`, you can use any of the standard attributes and me
 
 ## AsyncModelViewSet and AsyncReadOnlyModelViewSet
 
-The `AsyncModelViewSet` and `AsyncReadOnlyModelViewSet` classes are asynchronous counterparts of `ModelViewSet` and `ReadOnlyModelViewSet`, composed from the `Async` mixins. They provide the same actions, so routers work unchanged. Extra actions on an async viewset must be declared with `async def`. See the [asynchronous support][async] topic for details.
+The `AsyncModelViewSet` and `AsyncReadOnlyModelViewSet` classes are asynchronous counterparts of `ModelViewSet` and `ReadOnlyModelViewSet`, composed from the `Async` mixins. They provide the same actions, so routers work unchanged. Whether a view is async is decided per `.as_view()` binding, so extra actions may be either sync or async, as long as the actions bound together to one view are consistent. See the [asynchronous support][async] topic for details.
 
     class UserViewSet(viewsets.AsyncModelViewSet):
         queryset = User.objects.all()

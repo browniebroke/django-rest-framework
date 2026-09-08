@@ -5,6 +5,7 @@ from asgiref.sync import sync_to_async
 from django.http import Http404
 
 from rest_framework import exceptions
+from rest_framework.utils.asyncio import overrides_sync_only
 
 SAFE_METHODS = ('GET', 'HEAD', 'OPTIONS')
 
@@ -322,10 +323,32 @@ class DjangoModelPermissions(BasePermission):
         return request.user.has_perms(perms)
 
     async def ahas_permission(self, request, view):
-        perms = self._get_perms_to_check(request, view)
+        if overrides_sync_only(self, DjangoModelPermissions, 'has_permission'):
+            return await super().ahas_permission(request, view)
+        perms = await self._aget_perms_to_check(request, view)
         if isinstance(perms, bool):
             return perms
         return await request.user.ahas_perms(perms)
+
+    async def _aget_perms_to_check(self, request, view):
+        if not request.user or (
+           not request.user.is_authenticated and self.authenticated_users_only):
+            return False
+
+        if getattr(view, '_ignore_model_permissions', False):
+            return True
+
+        queryset = await self._aqueryset(view)
+        return self.get_required_permissions(request.method, queryset.model)
+
+    async def _aqueryset(self, view):
+        if hasattr(view, 'aget_queryset'):
+            queryset = await view.aget_queryset()
+            assert queryset is not None, (
+                f'{view.__class__.__name__}.aget_queryset() returned None'
+            )
+            return queryset
+        return self._queryset(view)
 
     async def ahas_object_permission(self, request, view, obj):
         return self.has_object_permission(request, view, obj)
@@ -399,8 +422,11 @@ class DjangoObjectPermissions(DjangoModelPermissions):
         return True
 
     async def ahas_object_permission(self, request, view, obj):
+        if overrides_sync_only(self, DjangoObjectPermissions, 'has_object_permission'):
+            return await sync_to_async(self.has_object_permission)(request, view, obj)
+
         # authentication checks have already executed via ahas_permission
-        queryset = self._queryset(view)
+        queryset = await self._aqueryset(view)
         model_cls = queryset.model
         user = request.user
 

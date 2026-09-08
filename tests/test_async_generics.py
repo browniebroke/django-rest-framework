@@ -2,8 +2,10 @@
 Tests for asynchronous support in generic views, mixins, viewsets, pagination,
 filter backends and serializers.
 """
+import pytest
 from asgiref.sync import async_to_sync
 from django.core.exceptions import ImproperlyConfigured
+from django.http import Http404, HttpResponse
 from django.test import TestCase, override_settings
 from django.urls import include, path
 
@@ -59,6 +61,17 @@ class CursorPaginationBySize(pagination.CursorPagination):
     ordering = 'text'
 
 
+class LimitOffsetPaginationWithCustomCount(pagination.LimitOffsetPagination):
+    """
+    Overrides only the sync `get_count()`, which must still be used from
+    async views rather than being bypassed by the native `aget_count()`.
+    """
+    default_limit = 2
+
+    def get_count(self, queryset):
+        return 42
+
+
 class SyncOnlyPagination(pagination.BasePagination):
     """
     A third-party style pagination class only implementing the sync API.
@@ -87,6 +100,61 @@ class BasicDetailView(generics.AsyncRetrieveUpdateDestroyAPIView):
     serializer_class = BasicSerializer
     authentication_classes = []
     permission_classes = []
+
+
+class PerformCreateView(generics.AsyncCreateAPIView):
+    """
+    Defines the sync `perform_create()` hook only, as a sync view would.
+    """
+    queryset = BasicModel.objects.all()
+    serializer_class = BasicSerializer
+    authentication_classes = []
+    permission_classes = []
+
+    def perform_create(self, serializer):
+        serializer.save(text=serializer.validated_data['text'].upper())
+
+
+class SyncGetQuerysetView(generics.AsyncListAPIView):
+    """
+    Overrides only the sync `get_queryset()`, performing a blocking query.
+    """
+    serializer_class = BasicSerializer
+    pagination_class = None
+    authentication_classes = []
+    permission_classes = []
+
+    def get_queryset(self):
+        if not BasicModel.objects.filter(text='parent').exists():
+            raise Http404
+        return BasicModel.objects.exclude(text='parent').order_by('pk')
+
+
+class AsyncGetQuerysetView(generics.AsyncRetrieveAPIView):
+    serializer_class = BasicSerializer
+    authentication_classes = []
+    permission_classes = []
+
+    def get_queryset(self):
+        raise AssertionError('The sync implementation must not be used.')
+
+    async def aget_queryset(self):
+        if not await BasicModel.objects.filter(text='parent').aexists():
+            raise Http404
+        return BasicModel.objects.exclude(text='parent')
+
+
+class SyncGetObjectView(generics.AsyncRetrieveAPIView):
+    """
+    Overrides only the sync `get_object()`, as a sync view would.
+    """
+    queryset = BasicModel.objects.all()
+    serializer_class = BasicSerializer
+    authentication_classes = []
+    permission_classes = []
+
+    def get_object(self):
+        return BasicModel.objects.get(text=self.kwargs['text'])
 
 
 class ForeignKeySourceListView(generics.AsyncListCreateAPIView):
@@ -125,6 +193,21 @@ class BasicViewSet(AsyncModelViewSet):
         return Response({'text': instance.text, 'action': self.action})
 
 
+class MixedViewSet(AsyncModelViewSet):
+    """
+    Async CRUD actions alongside a sync extra action, bound to its own view.
+    """
+    queryset = BasicModel.objects.all()
+    serializer_class = BasicSerializer
+    authentication_classes = []
+    permission_classes = []
+
+    @action(detail=True)
+    def download(self, request, pk=None):
+        instance = self.get_object()
+        return HttpResponse(instance.text, content_type='text/plain')
+
+
 class ReadOnlyViewSet(AsyncReadOnlyModelViewSet):
     queryset = BasicModel.objects.all()
     serializer_class = BasicSerializer
@@ -135,11 +218,17 @@ class ReadOnlyViewSet(AsyncReadOnlyModelViewSet):
 router = SimpleRouter()
 router.register('viewset', BasicViewSet, basename='basic')
 router.register('readonly', ReadOnlyViewSet, basename='readonly')
+router.register('mixed', MixedViewSet, basename='mixed')
 
 urlpatterns = [
     path('basic/', BasicListCreateView.as_view()),
     path('basic/<int:pk>/', BasicDetailView.as_view()),
     path('sources/', ForeignKeySourceListView.as_view()),
+    path('perform-create/', PerformCreateView.as_view()),
+    path('sync-get-queryset/', SyncGetQuerysetView.as_view()),
+    path('async-get-queryset/<int:pk>/', AsyncGetQuerysetView.as_view()),
+    path('sync-get-object/<str:text>/', SyncGetObjectView.as_view()),
+    path('custom-count/', make_paginated_view(LimitOffsetPaginationWithCustomCount).as_view()),
     path('page-number/', make_paginated_view(PageNumberPaginationWithSize).as_view()),
     path('limit-offset/', make_paginated_view(LimitOffsetPaginationWithDefault).as_view()),
     path('cursor/', make_paginated_view(CursorPaginationBySize).as_view()),
@@ -206,6 +295,53 @@ class AsyncGenericViewTests(TestCase):
         response = await self.client.delete('/basic/%d/' % self.items[0].pk)
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert not await BasicModel.objects.filter(pk=self.items[0].pk).aexists()
+
+    async def test_sync_perform_create_hook_is_used(self):
+        response = await self.client.post('/perform-create/', {'text': 'd'}, format='json')
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['text'] == 'D'
+
+    async def test_sync_get_queryset_override_runs_in_thread(self):
+        response = await self.client.get('/sync-get-queryset/')
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        await BasicModel.objects.acreate(text='parent')
+        response = await self.client.get('/sync-get-queryset/')
+        assert response.status_code == status.HTTP_200_OK
+        assert [item['text'] for item in response.data] == ['a', 'b', 'c']
+
+    async def test_aget_queryset(self):
+        response = await self.client.get('/async-get-queryset/%d/' % self.items[0].pk)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        await BasicModel.objects.acreate(text='parent')
+        response = await self.client.get('/async-get-queryset/%d/' % self.items[0].pk)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['text'] == 'a'
+
+    async def test_sync_get_object_override_runs_in_thread(self):
+        response = await self.client.get('/sync-get-object/b/')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['text'] == 'b'
+
+    async def test_django_filter_backend(self):
+        pytest.importorskip('django_filters')
+        from django_filters.rest_framework import DjangoFilterBackend
+
+        class View(generics.AsyncListAPIView):
+            queryset = BasicModel.objects.order_by('pk')
+            serializer_class = BasicSerializer
+            filter_backends = [DjangoFilterBackend]
+            filterset_fields = ['text']
+            pagination_class = None
+            authentication_classes = []
+            permission_classes = []
+
+        from rest_framework.test import AsyncAPIRequestFactory
+        request = AsyncAPIRequestFactory().get('/', {'text': 'b'})
+        response = await View.as_view()(request)
+        assert response.status_code == status.HTTP_200_OK
+        assert [item['text'] for item in response.data] == ['b']
 
     async def test_related_fields_are_serialized(self):
         # Related field access would be a blocking operation from the event
@@ -278,6 +414,11 @@ class AsyncPaginationTests(TestCase):
         response = await self.client.get(response.data['previous'])
         assert [item['text'] for item in response.data['results']] == ['c', 'd']
 
+    async def test_sync_get_count_override_is_used(self):
+        response = await self.client.get('/custom-count/')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 42
+
     async def test_sync_only_pagination_runs_in_thread(self):
         response = await self.client.get('/sync-only/')
         assert response.status_code == status.HTTP_200_OK
@@ -297,39 +438,53 @@ class AsyncViewSetTests(TestCase):
         assert ModelViewSet.view_is_async is False
         assert GenericViewSet.view_is_async is False
         assert ViewSet.view_is_async is False
+        # Not all actions are async.
+        assert MixedViewSet.view_is_async is False
 
-    def test_mixed_actions_are_rejected(self):
+    def test_mixed_actions_in_a_single_binding_are_rejected(self):
         class Mixed(AsyncModelViewSet):
             def list(self, request):
                 return Response()
 
         with self.assertRaises(ImproperlyConfigured):
-            Mixed.view_is_async
+            Mixed.as_view({'get': 'list', 'post': 'create'})
 
-        class MixedExtraAction(AsyncReadOnlyModelViewSet):
-            @action(detail=False)
-            def extra(self, request):
-                return Response()
+        # Bound separately, both are fine.
+        assert Mixed.as_view({'get': 'list'})
+        assert Mixed.as_view({'post': 'create'})
 
-        with self.assertRaises(ImproperlyConfigured):
-            MixedExtraAction.as_view({'get': 'list'})
+    def test_binding_determines_async(self):
+        from asgiref.sync import iscoroutinefunction
 
-    def test_undecorated_custom_action_must_match(self):
         class Custom(ViewSet):
             async def custom(self, request):
-                return Response()
+                return Response({'async': True})
 
-        # Without `@action`, the custom action isn't taken into account when
-        # determining whether the viewset is async.
-        assert Custom.view_is_async is False
+            def sync_custom(self, request):
+                return Response({'async': False})
+
+        assert iscoroutinefunction(Custom.as_view({'get': 'custom'}))
+        assert not iscoroutinefunction(Custom.as_view({'get': 'sync_custom'}))
         with self.assertRaises(ImproperlyConfigured):
-            Custom.as_view({'get': 'custom'})
+            Custom.as_view({'get': 'custom', 'post': 'sync_custom'})
 
-        class SyncCustom(ViewSet):
-            def custom(self, request):
-                return Response()
+    async def test_mixed_viewset_via_router(self):
+        response = await self.client.get('/mixed/')
+        assert response.status_code == status.HTTP_200_OK
+        assert [item['text'] for item in response.data] == ['a', 'b']
 
-        assert SyncCustom.as_view({'get': 'custom'})
+        response = await self.client.post('/mixed/', {'text': 'c'}, format='json')
+        assert response.status_code == status.HTTP_201_CREATED
+
+        # The sync action is bound to its own, synchronous, view.
+        response = await self.client.get('/mixed/%d/download/' % self.items[0].pk)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.content == b'a'
+
+        response = await self.client.options('/mixed/%d/download/' % self.items[0].pk)
+        assert response.status_code == status.HTTP_200_OK
+        response = await self.client.options('/mixed/')
+        assert response.status_code == status.HTTP_200_OK
 
     def test_extra_actions_are_registered_by_router(self):
         assert {a.__name__ for a in BasicViewSet.get_extra_actions()} == {'count', 'shout'}

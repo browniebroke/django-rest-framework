@@ -13,6 +13,7 @@ from django.utils.encoding import force_str
 
 from rest_framework import exceptions, serializers
 from rest_framework.request import clone_request
+from rest_framework.utils.asyncio import overrides_sync_only
 from rest_framework.utils.field_mapping import ClassLookupDict
 
 
@@ -75,6 +76,9 @@ class SimpleMetadata(BaseMetadata):
         return metadata
 
     async def adetermine_metadata(self, request, view):
+        if overrides_sync_only(self, SimpleMetadata, 'determine_metadata', 'determine_actions'):
+            return await super().adetermine_metadata(request, view)
+
         metadata = self.get_view_metadata(view)
         if hasattr(view, 'get_serializer'):
             actions = await self.adetermine_actions(request, view)

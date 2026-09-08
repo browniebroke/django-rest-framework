@@ -1,6 +1,7 @@
 """
 Generic views that provide commonly needed behavior.
 """
+from asgiref.sync import sync_to_async
 from django.core.exceptions import ValidationError
 from django.db.models.query import QuerySet
 from django.http import Http404
@@ -9,6 +10,7 @@ from django.shortcuts import get_object_or_404 as _get_object_or_404
 
 from rest_framework import mixins, views
 from rest_framework.settings import api_settings
+from rest_framework.utils.asyncio import get_async_method, overrides_sync_only
 
 
 def get_object_or_404(queryset, *filter_args, **filter_kwargs):
@@ -87,6 +89,20 @@ class GenericAPIView(views.APIView):
             queryset = queryset.all()
         return queryset
 
+    async def aget_queryset(self):
+        """
+        Asynchronous counterpart of `get_queryset()`.
+
+        Override this method if you need to perform asynchronous operations
+        when determining the queryset, for example to look up a parent object.
+        By default `get_queryset()` is called directly, as it only builds up a
+        lazy queryset. If `get_queryset()` has been overridden, it is run in a
+        thread instead, as it may perform blocking operations.
+        """
+        if overrides_sync_only(self, GenericAPIView, 'get_queryset'):
+            return await sync_to_async(self.get_queryset)()
+        return self.get_queryset()
+
     def get_object(self):
         """
         Returns the object the view is displaying.
@@ -107,7 +123,10 @@ class GenericAPIView(views.APIView):
         """
         Asynchronous counterpart of `get_object()`.
         """
-        queryset = await self.afilter_queryset(self.get_queryset())
+        if overrides_sync_only(self, GenericAPIView, 'get_object'):
+            return await sync_to_async(self.get_object)()
+
+        queryset = await self.afilter_queryset(await self.aget_queryset())
         obj = await aget_object_or_404(queryset, **self._get_lookup_filter_kwargs())
 
         # May raise a permission denied
@@ -184,9 +203,16 @@ class GenericAPIView(views.APIView):
     async def afilter_queryset(self, queryset):
         """
         Asynchronous counterpart of `filter_queryset()`.
+
+        Filter backends which don't provide an `afilter_queryset()` method,
+        such as third party backends not extending `BaseFilterBackend`, have
+        their `filter_queryset()` method run in a thread.
         """
+        if overrides_sync_only(self, GenericAPIView, 'filter_queryset'):
+            return await sync_to_async(self.filter_queryset)(queryset)
         for backend in list(self.filter_backends):
-            queryset = await backend().afilter_queryset(self.request, queryset, self)
+            afilter_queryset = get_async_method(backend(), 'filter_queryset')
+            queryset = await afilter_queryset(self.request, queryset, self)
         return queryset
 
     @property
@@ -213,9 +239,12 @@ class GenericAPIView(views.APIView):
         """
         Asynchronous counterpart of `paginate_queryset()`.
         """
+        if overrides_sync_only(self, GenericAPIView, 'paginate_queryset'):
+            return await sync_to_async(self.paginate_queryset)(queryset)
         if self.paginator is None:
             return None
-        return await self.paginator.apaginate_queryset(queryset, self.request, view=self)
+        apaginate_queryset = get_async_method(self.paginator, 'paginate_queryset')
+        return await apaginate_queryset(queryset, self.request, view=self)
 
     def get_paginated_response(self, data):
         """
